@@ -8,6 +8,7 @@ import time
 
 import pytest
 
+import desk_tools
 import talk_capabilities
 import talk_host
 import talk_operator_auth
@@ -137,6 +138,7 @@ def test_no_handler_is_orphaned():
     advertised = {tool["name"] for tool in talk_tools.default_talk_tools()}
     advertised.add("search_vault")  # conditional, absent when unservable
     advertised.add("pause_voice_input")  # conditional, absent without a way to resume
+    advertised |= desk_tools.DESK_TOOL_NAMES  # conditional, absent without TALK_DESK_TOOLS=1
 
     assert set(talk_tools._HANDLERS) == advertised
 

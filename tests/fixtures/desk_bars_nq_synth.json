@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"instrument\":\"NQ 09-26\",\"timeframe\":\"1D\",\"bars\":[{\"time\":\"2026-09-10T00:00:00Z\",\"open\":29210.0,\"high\":29388.5,\"low\":29102.25,\"close\":29315.75,\"volume\":412337},{\"time\":\"2026-09-11T00:00:00Z\",\"open\":29320.0,\"high\":29455.0,\"low\":29288.75,\"close\":29390.5,\"volume\":398120}]}"
+      }
+    ],
+    "isError": false
+  }
+}

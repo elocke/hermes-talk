@@ -35,7 +35,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 py-modules = [
+  "desk_front_month",
+  "desk_tools",
   "talk_config",
+  "talk_mcp_tools",
   "talk_live_audio",
   "talk_live_browser",
   "talk_live_config",
@@ -132,7 +135,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "BLE"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
+  "desk_front_month",
+  "desk_tools",
   "talk_apiserver",
+  "talk_mcp_tools",
   "talk_attachment",
   "talk_approvals",
   "talk_audio",

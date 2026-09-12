@@ -520,6 +520,41 @@ Talk never writes either store. Doctor's auth check names the winning lane
 /v1/realtime/client_secrets` plus a socket handshake against `api.x.ai`
 that prints status codes and the first event type, never the token.
 
+### Extra MCP tools
+
+Allowlisted tools on ONE streamable-HTTP MCP server, advertised to the
+Realtime session as functions (`talk_mcp_tools.py`). The realtime model has
+native async function calling, so a read that answers inside the timeout is
+conversationally free — where a `delegate_task` round trip is not. Fail
+closed: no server, no allowlist, or a server that cannot be listed in time
+means no extra tools, never all of them. Every tool named here is
+voice-callable by ANYONE in the room (the Discord gate treats the allowlist
+as read-only by the operator's declaration), so list only read tools and let
+the server's own per-key allowlist be the boundary.
+
+| Variable | Default | Effect / failure mode |
+|---|---|---|
+| `TALK_EXTRA_MCP_SERVER` | unset | URL of one MCP server (JSON-RPC over POST; JSON or SSE answers). Unset = the feature is off. |
+| `TALK_EXTRA_MCP_KEY_ENV` | unset | The NAME of the env var holding the server's bearer token, read at call time and sent only to that server as `Authorization: Bearer`. Unset = no auth header. |
+| `TALK_EXTRA_MCP_TOOLS` | unset | Comma-separated MCP tool names to expose (`nt8.quote.get,gex.summary`). Matched against the server's `tools/list` exactly or after a gateway `<server>-` prefix; a name the server does not list is skipped with a warning. Empty = no tools. Function names are the MCP names with non-`[A-Za-z0-9_-]` characters replaced by `_`. |
+| `TALK_EXTRA_MCP_TIMEOUT_S` | `2` | Per-request timeout, capped at 10. A timeout is spoken as a failure, never raised into the session. |
+
+### Desk tools
+
+A preset on the same transport (`desk_tools.py`): five hand-written,
+read-only market lookups — `get_quote`, `get_gex`, `get_levels`,
+`get_session_range`, `get_chart_read` — whose handlers resolve the futures
+front month first (`desk_front_month.py`, pure stdlib) and compact the
+answer to a short JSON object the model reads aloud, number first. Each
+handler returns `{"error": …}` on any failure.
+
+| Variable | Default | Effect / failure mode |
+|---|---|---|
+| `TALK_DESK_TOOLS` | unset | `1`/`true`/`yes`/`on` advertises the five desk tools after the base set. Anything else is off. |
+| `TALK_DESK_MCP_URL` | `http://192.168.2.210:4000/trading_stack/mcp` | The trading MCP server (LiteLLM's per-server endpoint). |
+| `TALK_DESK_MCP_KEY` | unset | Bearer for that server — the trading profile's LiteLLM key, set in the profile's `.env`. Unset = no auth header. |
+| `TALK_DESK_MCP_TIMEOUT_S` | `2` | Per-request timeout, capped at 10. |
+
 ### Host
 
 | Variable | Default | Effect / failure mode |

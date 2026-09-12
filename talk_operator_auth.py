@@ -28,9 +28,10 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from . import talk_config
+    from . import talk_config, talk_mcp_tools
 except ImportError:  # pragma: no cover - flat-module fallback
     import talk_config
+    import talk_mcp_tools
 
 _log = logging.getLogger(__name__)
 
@@ -57,6 +58,13 @@ READ_ONLY_TALK_TOOLS = frozenset(
         "talk_status",
         "talk_capabilities",
         "pause_voice_input",
+        # Desk tools (desk_tools.py): market READS over one bearer whose
+        # reach is decided server-side. Advertised only with TALK_DESK_TOOLS=1.
+        "get_quote",
+        "get_gex",
+        "get_levels",
+        "get_session_range",
+        "get_chart_read",
     }
 )
 MUTATING_TALK_TOOLS = frozenset(
@@ -833,6 +841,12 @@ class DiscordToolAuthorizationLedger:
             if isinstance(permit, _CallPermit):
                 permit.consumed = True
         if name in READ_ONLY_TALK_TOOLS:
+            return None
+        # An allowlisted extra MCP tool (talk_mcp_tools) is read-only BY THE
+        # OPERATOR'S DECLARATION — the allowlist is explicit config, and what
+        # the bearer may call at all is bounded server-side. Nothing outside
+        # that allowlist is registered, so this cannot widen to unlisted names.
+        if talk_mcp_tools.is_extra_tool(name):
             return None
         if name in MUTATING_TALK_TOOLS:
             denial_template = MUTATION_DENIAL

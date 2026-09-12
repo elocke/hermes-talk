@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"shell\":\"desk\",\"epoch\":6264,\"slots\":[{\"name\":\"nq-1h\",\"state\":\"unreachable\",\"symbol\":\"NQ1!\",\"timeframe\":\"60\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"nq-5m\",\"state\":\"unreachable\",\"symbol\":\"NQ1!\",\"timeframe\":\"5\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"nq-1m\",\"state\":\"unreachable\",\"symbol\":\"NQ1!\",\"timeframe\":\"1\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-15m\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"15\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-5m\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"5\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-3m\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"3\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-1m\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"1\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-15s\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"15S\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"},{\"name\":\"mnq-1d\",\"state\":\"unreachable\",\"symbol\":\"MNQ1!\",\"timeframe\":\"1D\",\"reason\":\"slots.enumerate failed: DESK_OP_FAILED: ECONNREFUSED\"}]}"
+      }
+    ],
+    "isError": false
+  }
+}

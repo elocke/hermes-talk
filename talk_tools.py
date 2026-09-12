@@ -28,6 +28,7 @@ from pathlib import Path
 # the import on whichever module loads second.
 try:
     from . import (
+        desk_tools,
         talk_approvals,
         talk_audio,
         talk_auth,
@@ -37,12 +38,14 @@ try:
         talk_doctor,
         talk_host,
         talk_identity,
+        talk_mcp_tools,
         talk_pause,
         talk_runs,
         talk_steer,
         talk_vault,
     )
 except ImportError:  # pragma: no cover - flat-module fallback (Hermes file-path load)
+    import desk_tools
     import talk_approvals
     import talk_audio
     import talk_auth
@@ -52,6 +55,7 @@ except ImportError:  # pragma: no cover - flat-module fallback (Hermes file-path
     import talk_doctor
     import talk_host
     import talk_identity
+    import talk_mcp_tools
     import talk_pause
     import talk_runs
     import talk_steer
@@ -451,6 +455,12 @@ def default_talk_tools(*, pausable: bool = False) -> list[dict]:
     lives in the browser, and a terminal whose stdin is not a tty has no key
     to press — so a pause tool is never offered where the only way back
     would be Ctrl+C.
+
+    Two more conditional groups ride on operator configuration, both
+    read-only and both degrading to "absent" rather than failing the mint:
+    the desk tools (``TALK_DESK_TOOLS=1``, see ``desk_tools``) and the
+    allowlisted extra MCP tools (``TALK_EXTRA_MCP_SERVER`` + allowlist, see
+    ``talk_mcp_tools``).
     """
 
     tools = [
@@ -472,13 +482,22 @@ def default_talk_tools(*, pausable: bool = False) -> list[dict]:
             tools.insert(1, _TOOL_SEARCH_VAULT)
     except Exception as exc:  # noqa: BLE001 — a missing tool, never a dead session
         _log.debug("vault availability unknown: %s: %s", type(exc).__name__, exc)
+    try:
+        if desk_tools.enabled():
+            tools.extend(desk_tools.desk_talk_tools())
+    except Exception as exc:  # noqa: BLE001 — a missing tool, never a dead session
+        _log.debug("desk tools unavailable: %s: %s", type(exc).__name__, exc)
+    try:
+        tools.extend(talk_mcp_tools.extra_talk_tools())
+    except Exception as exc:  # noqa: BLE001 — a missing tool, never a dead session
+        _log.debug("extra MCP tools unavailable: %s: %s", type(exc).__name__, exc)
     return copy.deepcopy(tools)
 
 
 def execute_talk_tool(name: str, arguments: dict | None) -> str:
     """Dispatch one tool call and return plain text for the model to speak."""
 
-    handler = _HANDLERS.get(name)
+    handler = _HANDLERS.get(name) or talk_mcp_tools.handler_for(name)
     if handler is None:
         raise TalkToolError(f"unknown talk tool: {name!r}")
     try:
@@ -880,6 +899,9 @@ _HANDLERS = {
     "talk_status": _handle_talk_status,
     "talk_capabilities": _handle_talk_capabilities,
     "pause_voice_input": _handle_pause_voice_input,
+    # Desk tools are always dispatchable; they are ADVERTISED only when
+    # TALK_DESK_TOOLS=1 (default_talk_tools), the same split as search_vault.
+    **desk_tools.DESK_HANDLERS,
 }
 
 
