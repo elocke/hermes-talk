@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 13,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"symbol\":\"NQ\",\"view\":\"oi_0\",\"futPrice\":29391.75,\"flipFut\":29250.0,\"callWallFut\":29600.0,\"putWallFut\":29100.0,\"levels\":[{\"strike\":705,\"fut\":29050.0,\"gex\":-2.1,\"cGex\":0.4,\"pGex\":-2.5,\"cOI\":1200,\"pOI\":8100,\"vol\":3300,\"oiChg\":210},{\"strike\":710,\"fut\":29100.0,\"gex\":-4.8,\"cGex\":0.6,\"pGex\":-5.4,\"cOI\":1500,\"pOI\":15400,\"vol\":6100,\"oiChg\":880,\"side\":\"put\"},{\"strike\":715,\"fut\":29250.0,\"gex\":0.3,\"cGex\":1.9,\"pGex\":-1.6,\"cOI\":4100,\"pOI\":5200,\"vol\":4400,\"oiChg\":-120},{\"strike\":720,\"fut\":29600.0,\"gex\":6.2,\"cGex\":6.9,\"pGex\":-0.7,\"cOI\":19800,\"pOI\":2100,\"vol\":9000,\"oiChg\":1500,\"side\":\"call\"},{\"strike\":725,\"fut\":29800.0,\"gex\":3.9,\"cGex\":4.2,\"pGex\":-0.3,\"cOI\":11000,\"pOI\":900,\"vol\":2100,\"oiChg\":300},{\"strike\":700,\"fut\":28850.0,\"gex\":-1.1,\"cGex\":0.1,\"pGex\":-1.2,\"cOI\":300,\"pOI\":4100,\"vol\":900,\"oiChg\":40},{\"strike\":730,\"fut\":30000.0,\"gex\":2.4,\"cGex\":2.5,\"pGex\":-0.1,\"cOI\":7000,\"pOI\":200,\"vol\":1200,\"oiChg\":90},{\"strike\":735,\"fut\":30200.0,\"gex\":1.0,\"cGex\":1.0,\"pGex\":0.0,\"cOI\":2000,\"pOI\":100,\"vol\":300,\"oiChg\":10},{\"strike\":740,\"fut\":30400.0,\"gex\":0.5,\"cGex\":0.5,\"pGex\":0.0,\"cOI\":900,\"pOI\":50,\"vol\":100,\"oiChg\":5}]}"
+      }
+    ],
+    "isError": false
+  }
+}

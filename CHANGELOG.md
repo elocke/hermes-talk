@@ -13,6 +13,19 @@ named rather than smoothed.
 
 ## [Unreleased]
 
+### Added
+- Extra MCP tools: `TALK_EXTRA_MCP_SERVER` + `TALK_EXTRA_MCP_KEY_ENV` +
+  `TALK_EXTRA_MCP_TOOLS` expose an explicit allowlist of one MCP server's
+  tools as realtime functions (`talk_mcp_tools.py`). Fail-closed (no
+  allowlist, no tools; an unlistable server costs only those tools), one
+  bearer spent on one endpoint, two-second default timeout, failures spoken
+  not raised. Allowlisted tools pass the Discord gate as read-only by the
+  operator's declaration.
+- Desk tools preset (`TALK_DESK_TOOLS=1`): `get_quote`, `get_gex`,
+  `get_levels`, `get_session_range`, `get_chart_read` — read-only market
+  lookups over the trading MCP server with calendar front-month resolution
+  (`desk_front_month.py`) and number-first spoken output.
+
 ## [0.22.0] — 2026-10-25
 
 Run your Desktop sessions by voice: choose a project directory, start work in a

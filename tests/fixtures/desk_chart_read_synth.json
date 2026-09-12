@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 14,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"shell\":\"desk\",\"epoch\":6264,\"slot\":\"nq-5m\",\"cached\":false,\"readout\":{\"layoutId\":\"aBcD1234\",\"layoutName\":\"NQ1!\",\"layoutNameSource\":\"document.title\",\"focused\":0,\"matchedIndex\":1,\"charts\":[{\"symbol\":\"MNQ1!\",\"timeframe\":\"1\",\"studies\":[\"VWAP\"]},{\"symbol\":\"NQ1!\",\"timeframe\":\"5\",\"studies\":[\"VWAP\",\"EMA 21\",\"Volume\"],\"lastBar\":{\"time\":\"2026-09-11T19:55:00Z\",\"open\":29385.0,\"high\":29392.0,\"low\":29381.25,\"close\":29390.5,\"volume\":1834},\"visibleRange\":{\"from\":\"2026-09-11T13:30:00Z\",\"to\":\"2026-09-11T20:00:00Z\"}}]}}"
+      }
+    ],
+    "isError": false
+  }
+}

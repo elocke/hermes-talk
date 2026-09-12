@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"symbol\":\"NQ\",\"view\":\"oi_0\",\"futPrice\":29391.75,\"etf\":\"QQQ\",\"etfPrice\":713,\"updated\":1789255718,\"ageSec\":0,\"regime\":\"positive\",\"netGexM\":0,\"dexM\":0,\"vannaM\":0,\"charmM\":0,\"flipFut\":null,\"flipEtf\":null,\"callWallFut\":null,\"putWallFut\":null,\"ratio\":41.22,\"shift\":{\"strike\":730,\"fut\":30095,\"deltaM\":6,\"mins\":31},\"distToFlip\":-29391.75,\"distToCallWall\":-29391.75,\"distToPutWall\":-29391.75}"
+      }
+    ],
+    "isError": false
+  }
+}

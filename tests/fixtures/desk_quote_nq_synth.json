@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"instrument\":\"NQ 09-26\",\"bid\":29390.25,\"ask\":29390.5,\"last\":29390.5,\"time\":\"2026-09-11T19:59:58Z\"}"
+      }
+    ],
+    "isError": false
+  }
+}
