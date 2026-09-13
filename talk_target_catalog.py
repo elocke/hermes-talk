@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - flat plugin load
     from talk_target_state import TargetState
 
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
+_EXACT_SESSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}\Z")
 PUBLIC_FIELDS = ("target_id", "kind", "label", "peer_id", "host_label", "profile", "session_id")
 
 
@@ -110,6 +111,8 @@ class TargetCatalog:
         actor = self.actor(request)
         if peer_id == "local":
             context = self.manager.resolve_context(request, profile)
+            if context.profile_name != profile:
+                raise DashboardTaskError("context_denied", 403)
             transport = self.local_factory(context)
             gateway = TaskGateway(transport)
             gateway.require_local()
@@ -156,13 +159,21 @@ class TargetCatalog:
         return context, transport, fingerprint
 
     def catalog(self, request, body):
-        if not isinstance(body, dict) or set(body) - {"peer_id", "profile", "tab_id"}:
+        if not isinstance(body, dict) or set(body) - {"peer_id", "profile", "session_id", "tab_id"}:
             raise DashboardTaskError("invalid_event", 400)
         for key in ("peer_id", "profile"):
             if body.get(key) is not None and (
                 not isinstance(body[key], str) or not _NAME.fullmatch(body[key])
             ):
                 raise DashboardTaskError("invalid_event", 400)
+        requested_session = body.get("session_id")
+        if "session_id" in body and (
+            body.get("peer_id") != "local"
+            or not body.get("profile")
+            or not isinstance(requested_session, str)
+            or not _EXACT_SESSION.fullmatch(requested_session)
+        ):
+            raise DashboardTaskError("invalid_event", 400)
         actor = self.actor(request)
         state = TargetState(actor)
         peer_id = body.get("peer_id") or "local"
@@ -181,14 +192,23 @@ class TargetCatalog:
             scopes = [row for row in rows if not requested or row["name"] == requested]
         else:
             scopes = [{"name": requested or "default", "display_name": requested or "default"}]
+        if requested_session is not None and len(scopes) != 1:
+            raise DashboardTaskError("target_missing", 404)
         records, unavailable = [], []
         for row in scopes:
             profile = row["name"]
             try:
                 context, transport, fingerprint = self._route(request, peer_id, profile)
                 gateway = TaskGateway(transport)
+                exact = (
+                    gateway.session(requested_session) if requested_session is not None else None
+                )
                 visible = gateway.sessions()
                 bots = gateway.sessions(bot=True)
+                if exact is not None:
+                    if transport.credential in exact["id"]:
+                        raise DashboardTaskError("gateway_response_invalid", 502)
+                    visible = [exact, *visible]
                 seen = set()
                 for kind, entries in (("bot", bots), ("task", visible)):
                     if kind == "bot" and len(entries) > 1:
@@ -231,6 +251,10 @@ class TargetCatalog:
                         )
                         records.append(record)
             except (DashboardTaskError, HistoryError, ValueError, RuntimeError) as exc:
+                if requested_session is not None:
+                    if isinstance(exc, (DashboardTaskError, HistoryError)):
+                        raise
+                    raise DashboardTaskError("gateway_response_invalid", 502) from None
                 code = getattr(exc, "code", "target_unavailable")
                 code = {
                     "unauthorized": "target_auth_denied",

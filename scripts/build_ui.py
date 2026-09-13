@@ -29,7 +29,9 @@ def render_bundles(root: Path) -> dict[Path, str]:
             raise ValueError("Desktop entry must contain exactly one " + CSS_TOKEN)
         css = (root / "dashboard/dist/style.css").read_text(encoding="utf-8")
         desktop = desktop.replace(CSS_TOKEN, json.dumps(css, ensure_ascii=True))
-        bundles[root / "desktop/plugin.js"] = banner + shared + "\n" + desktop
+        view = root / "ui/desktop-view.js"
+        desktop_view = read_source(root, "ui/desktop-view.js") if view.is_file() else ""
+        bundles[root / "desktop/plugin.js"] = banner + shared + "\n" + desktop_view + "\n" + desktop
     return bundles
 
 

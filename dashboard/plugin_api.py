@@ -174,6 +174,8 @@ TARGETS = talk_target_selection.TargetSelection(TASKS)
 
 DASHBOARD_TOKEN_ENV = "TALK_DASHBOARD_TOKEN"
 DASHBOARD_TOKEN_HEADER = "x-talk-token"
+DESKTOP_TOKEN_ENV = "HERMES_DESKTOP_TALK_TOKEN"
+DESKTOP_TOKEN_HEADER = "x-hermes-desktop-talk-token"
 
 #: Peers this process will serve when no token is configured. ``::ffff:127.0.0.1``
 #: is the IPv4-mapped form a dual-stack listener reports.
@@ -236,6 +238,23 @@ def _is_loopback(request) -> bool:
     return host.strip().lower() in LOOPBACK_HOSTS
 
 
+def _has_desktop_auth(request, presented: str) -> bool:
+    """Accept the owned local Desktop bridge only with verified host identity."""
+
+    if not _is_loopback(request):
+        return False
+    configured = (os.environ.get(DESKTOP_TOKEN_ENV) or "").strip()
+    if not configured or not presented or not hmac.compare_digest(
+        presented.encode("utf-8"), configured.encode("utf-8")
+    ):
+        return False
+    try:
+        talk_dashboard_tasks.resolve_context(request)
+    except DashboardTaskError:
+        return False
+    return True
+
+
 def require_dashboard_auth(request) -> None:
     """Gate one request. Returns on success, raises otherwise — never a bool.
 
@@ -249,6 +268,13 @@ def require_dashboard_auth(request) -> None:
         # raising, and the comparison does not short-circuit on first mismatch.
         if presented and hmac.compare_digest(presented.encode("utf-8"), configured.encode("utf-8")):
             return
+    getter = getattr(getattr(request, "headers", None), "get", None)
+    desktop_token = (getter(DESKTOP_TOKEN_HEADER) or "").strip() if getter else ""
+    if desktop_token:
+        if _has_desktop_auth(request, desktop_token):
+            return
+        raise HTTPException(status_code=401, detail=TOKEN_REQUIRED_MESSAGE)
+    if configured is not None:
         raise HTTPException(status_code=401, detail=TOKEN_REQUIRED_MESSAGE)
     if _is_loopback(request):
         return

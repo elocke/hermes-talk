@@ -1,18 +1,20 @@
 # Hermes Talk in Desktop
 
-The Desktop integration adds **Talk** beside the chat composer. It opens the
-same task picker, transcript and controls used by the dashboard, inside Desktop.
+The Desktop integration adds **Talk** in the top bar and beside the chat composer.
+Open a conversation, choose **Talk**, then **Start talking**. Talk attaches that
+conversation automatically and shows captions and background results in a compact view.
 The generated entrypoint is `desktop/plugin.js`; it does not embed a second
 provider implementation or an external browser page.
 
 ## Required host support
 
-This candidate requires a Hermes Desktop host with both:
+This candidate requires a Hermes Desktop host with:
 
 - `useComposerVoiceController()` reporting `microphoneLease: 1` and
-  `pinnedRest: 1`, and granting an abortable microphone lease;
-- plugin REST accepting an explicit `{connectionId, profile}` scope and a
-  `pluginToken` forwarded only as `X-Hermes-Plugin-Token` in its plugin namespace.
+  `pinnedRest: 1` and `prepareSession: 1`, granting an abortable microphone lease
+  and preparing the exact current conversation without sending a prompt;
+- plugin REST accepting an explicit `{connectionId, profile}` scope;
+- the native Talk authentication bridge for Desktop-owned local backends.
 
 The companion host change builds on the composer ownership controller proposed
 in [Hermes PR #100666](https://github.com/NousResearch/hermes-agent/pull/100666).
@@ -27,13 +29,16 @@ microphone access. This page does not imply those changes are in stock Desktop.
 2. Restart Desktop so it loads the new renderer SDK and plugin entrypoint.
 3. In Desktop **Capabilities → Plugins**, enable **Hermes Talk** if its Desktop
    contribution is disabled. Installed agent packages are opt-in on Desktop.
-4. Open a connected Hermes conversation, then click **Talk** beside its composer.
-5. If Talk asks for `TALK_DASHBOARD_TOKEN`, enter the token configured on the selected
-   host and click **Use token**. The task list refreshes after authentication.
-   This is the Talk access token, not a provider API key.
-6. Select the authorized Hermes task in the Talk window and click **Start**.
-7. Allow the requested microphone access. Click **Stop**, or close the Talk window,
+4. Open a connected Hermes conversation, then click **Talk** in the top bar or
+   beside its composer. The top-bar button follows the focused conversation.
+5. Click **Start talking**. A new conversation is saved automatically, without a
+   synthetic message. Existing conversations are resumed by their exact identity.
+6. Allow the requested microphone access. Click **Stop talking**, or close the Talk window,
    to end audio. Accepted background work continues in its owning task.
+
+Local Desktop authentication is automatic. There is no Talk token field or task
+picker to complete before starting. Voice selection, conversation switching and
+spoken-update preferences are available under **Advanced**.
 
 The plugin installer installs the repository, including `desktop/plugin.js`.
 Installing the Python wheel alone does not register a Desktop contribution.
@@ -52,9 +57,16 @@ Cascade streaming is not carried by this host's JSON plugin bridge; use the
 dashboard for cascade. Unsupported modes produce an explanation before session
 creation. Opening Talk does not alter your provider or billing settings.
 
-The host keeps long-lived provider credentials. If `TALK_DASHBOARD_TOKEN` is
-configured, the Talk window's existing token field supplies that additional gate;
-it never replaces host authentication. Do not paste provider API keys there.
+The host keeps long-lived provider credentials. Electron main grants each local
+backend a temporary Talk credential and attaches it only to that owned backend's
+Talk routes. The renderer never receives or stores it. Both normal host
+authentication and exact task authorization still apply. External dashboard
+requests retain their existing `TALK_DASHBOARD_TOKEN` gate.
+
+This automatic bridge applies to backends started locally by Desktop. It is not
+forwarded to SSH, cloud or remote connections. A separately hosted gateway retains
+its configured access requirements; use its authenticated dashboard until that
+connection supplies native Talk authentication.
 
 ## Ownership and recovery
 
@@ -65,9 +77,10 @@ transport and releases the microphone.
 
 Requests capture the original connection and profile. An already admitted
 request, including a late session receipt and its cleanup request, remains tied
-to that owner. It cannot migrate to a newly focused conversation. The Talk task
-picker still chooses the authorized task within that scope; the composer does
-not grant authority over arbitrary Codex or Claude Code conversations.
+to that owner. It cannot migrate to a newly focused conversation. The initial
+target must match the composer's stored conversation, even when it is older than
+the recent conversation list. A failed resume never creates a replacement task.
+The composer does not grant authority over arbitrary Codex or Claude Code conversations.
 
 If audio disconnects, inspect the task's current state before retrying an action.
 Reopening Talk never automatically repeats an uncertain worker launch or send.

@@ -22,7 +22,7 @@ const owner = {connectionId:'connection-a',profile:'profile-a',sessionId:'pane-a
   storedSessionId:'stored-a'};
 const leaseController = new AbortController();
 let acquires = 0, releases = 0;
-const controller = {capabilities:{microphoneLease:1,pinnedRest:1},owner,
+const controller = {capabilities:{microphoneLease:1,pinnedRest:1,prepareSession:1},owner,
   async acquire() {acquires++;return {signal:leaseController.signal,release(){releases++;}};}};
 const host = {rest(path,options) {calls.push({path,options});return Promise.resolve({ok:true});},
   register(entry) {registered.push(entry);},onDispose(fn){disposers.push(fn);}};
@@ -72,7 +72,7 @@ assert.equal(acquires,0);
 @pytest.mark.parametrize("scenario", [
     r"""
 controller.capabilities={microphoneLease:1};
-assert.throws(createSDK,/Desktop build needs/);
+assert.throws(createSDK,/Update Hermes Desktop/);
 """,
     r"""
 controller.owner=null; assert.throws(createSDK,/connected Hermes conversation/);
@@ -118,8 +118,9 @@ def test_desktop_rejects_unavailable_or_invalid_operations(scenario):
 def test_desktop_registers_inside_the_composer_without_starting_audio():
     run_node(r"""
 context.plugin.register(host);
-assert.equal(context.plugin.id,'hermes-talk');assert.equal(registered.length,1);
+assert.equal(context.plugin.id,'hermes-talk');assert.equal(registered.length,2);
 assert.equal(registered[0].area,'composer.actions');
+assert.equal(registered[1].area,'titleBar.right');
 assert.equal(typeof registered[0].render().type,'function');
 assert.equal(acquires,0);assert.equal(calls.length,0);
 assert.equal(disposers.length,1);disposers[0]();
@@ -166,7 +167,8 @@ assert.equal(first.children[1].type,second.children[1].type,
 await sdk.acquireMicrophone();assert.equal(refreshedAcquires,1);assert.equal(acquires,0);
 const third=context.DesktopTalkPanel({context:host,
   controller:{...refreshed,owner:{...owner,storedSessionId:'different-task'}}});
-assert.notEqual(second.children[1].type,third.children[1].type);
+assert.equal(second.children[1].type,third.children[1].type,
+  'the action owns remount/close; preparation must preserve the in-flight surface');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
 
@@ -174,6 +176,7 @@ assert.notEqual(second.children[1].type,third.children[1].type);
 def test_opening_talk_cannot_submit_the_composer_draft():
     run_node(r"""
 React.useState=()=>[null,()=>{}];React.useEffect=()=>{};
+React.useRef=value=>({current:value});
 HermesSDK.useComposerVoiceController=()=>controller;
 const tree=context.DesktopTalkAction();
 assert.equal(tree.children[0].props.type,'button');
@@ -181,4 +184,61 @@ tree.children[0].props.onClick();assert.equal(calls.length,0);assert.equal(acqui
 let stopped=0;
 tree.children[1].children[0].props.onSubmit({stopPropagation(){stopped++;}});
 assert.equal(stopped,1,'Talk form submits must stop before the host composer');
+""")
+
+
+def test_desktop_prepares_exact_conversation_before_catalog_and_microphone():
+    run_node(r"""
+(async()=>{
+for (const draft of [false,true]) {
+  controller.owner={...owner,storedSessionId:draft?null:owner.storedSessionId};
+  controller.capabilities.prepareSession=1;
+  let prepared=false, pendingPublication;
+  const next={...owner,sessionId:'prepared-runtime'};
+  controller.prepareSession=async()=>{
+    prepared=true;
+    pendingPublication=setTimeout(()=>{controller.owner=next;},5);
+    return next;
+  };
+  host.rest=async(path,options)=>{
+    assert(prepared);assert.equal(path,'/targets');
+    assert.equal(options.scope.connectionId,owner.connectionId);
+    assert.equal(options.body.session_id,owner.storedSessionId);
+    assert.equal(options.body.profile,owner.profile);
+    assert.equal(options.pluginToken,undefined);
+    return {ok:true,targets:[{target_id:'target-current',peer_id:'local',
+      profile:owner.profile,session_id:owner.storedSessionId}]};
+  };
+  const notices=[];
+  const sdk=context.createDesktopTalkSDK(host,()=>controller,(...args)=>notices.push(args));
+  const result=await sdk.prepareTask({tabId:'tab-a'});
+  clearTimeout(pendingPublication);
+  assert.equal(result.target_id,'target-current');
+  assert.equal(sdk.desktopOwner.storedSessionId,owner.storedSessionId);
+  assert.equal(notices[0][0],true);assert.equal(notices.at(-1)[0],false);
+  assert.equal(acquires,0,'preparing does not open the microphone');
+}
+})().catch(e=>{console.error(e);process.exitCode=1;});
+""")
+
+
+def test_desktop_refuses_wrong_or_cancelled_preparation_without_fallback():
+    run_node(r"""
+(async()=>{
+for (const scenario of ['other-task','other-host','resume-failed','cancel','wrong-catalog']) {
+  controller.owner={...owner};controller.capabilities.prepareSession=1;
+  const abort=new AbortController();let catalog=0;
+  controller.prepareSession=async()=>{
+    if(scenario==='resume-failed') throw Error('Resume failed');
+    if(scenario==='cancel') abort.abort();
+    return {...owner,...(scenario==='other-task'?{storedSessionId:'other'}:{}),
+      ...(scenario==='other-host'?{connectionId:'other'}:{})};
+  };
+  host.rest=async()=>{catalog++;return {ok:true,targets:[{target_id:'wrong',
+    peer_id:'local',profile:owner.profile,session_id:'somewhere-else'}]};};
+  await assert.rejects(createSDK().prepareTask({tabId:'tab-a',signal:abort.signal}));
+  assert.equal(catalog,scenario==='wrong-catalog'?1:0);
+  assert.equal(acquires,0);
+}
+})().catch(e=>{console.error(e);process.exitCode=1;});
 """)

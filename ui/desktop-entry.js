@@ -5,6 +5,7 @@ const TALK_CSS = __HERMES_TALK_CSS__;
 const DESKTOP_API = '/api/plugins/hermes-talk';
 const h = React.createElement;
 let desktopContext = null;
+const desktopOpeners = new Set();
 
 function ownerKey(owner) {
   return JSON.stringify([owner?.connectionId, owner?.profile,
@@ -13,9 +14,8 @@ function ownerKey(owner) {
 
 export function desktopAvailability(controller) {
   if (!controller || controller.capabilities?.microphoneLease !== 1 ||
-      controller.capabilities?.pinnedRest !== 1) {
-    return 'This Desktop build needs the microphone ownership and pinned plugin routing update. ' +
-      'Use the matching Hermes host build described in the Talk Desktop guide.';
+      controller.capabilities?.pinnedRest !== 1 || controller.capabilities?.prepareSession !== 1) {
+    return 'Update Hermes Desktop to use Talk in this conversation.';
   }
   if (typeof controller.acquire !== 'function' ||
       typeof controller.owner?.connectionId !== 'string' || !controller.owner.connectionId ||
@@ -25,16 +25,64 @@ export function desktopAvailability(controller) {
   return '';
 }
 
-export function createDesktopTalkSDK(context, controller) {
+export function createDesktopTalkSDK(context, controller, onPreparing = () => {}) {
   const currentController = typeof controller === 'function' ? controller : () => controller;
   const unavailable = desktopAvailability(currentController());
   if (unavailable) throw new Error(unavailable);
-  const owner = Object.freeze({ ...currentController().owner });
+  let owner = Object.freeze({ ...currentController().owner });
   const scope = Object.freeze({ connectionId: owner.connectionId, profile: owner.profile });
-  return {
+  const sdk = {
     React,
     hooks: React,
     components: { Button: HermesSDK.Button, Input: HermesSDK.Input },
+    managedAuthentication: true,
+    get desktopOwner() { return owner; },
+    async prepareTask({ tabId, signal }) {
+      const current = currentController();
+      const original = owner;
+      if (ownerKey(current?.owner) !== ownerKey(original) || signal?.aborted) {
+        throw new Error('The Hermes conversation changed. Reopen Talk in the selected conversation.');
+      }
+      if (current.capabilities?.prepareSession !== 1 || typeof current.prepareSession !== 'function') {
+        throw new Error('Update Hermes Desktop to start Talk in this conversation.');
+      }
+      let prepared = null;
+      onPreparing(true);
+      try {
+        prepared = await current.prepareSession();
+        if (signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+        if (!prepared?.storedSessionId || prepared.connectionId !== scope.connectionId ||
+            prepared.profile !== scope.profile || (original.storedSessionId &&
+              prepared.storedSessionId !== original.storedSessionId)) {
+          throw new Error('The Hermes conversation changed. Reopen Talk in the selected conversation.');
+        }
+        // React must publish the prepared owner before its current lease can be used.
+        const deadline = Date.now() + 1000;
+        while (ownerKey(currentController()?.owner) !== ownerKey(prepared) && Date.now() < deadline) {
+          if (signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+          await new Promise(resolve => window.setTimeout(resolve, 10));
+        }
+        if (ownerKey(currentController()?.owner) !== ownerKey(prepared)) {
+          throw new Error('The Hermes conversation changed. Reopen Talk in the selected conversation.');
+        }
+        owner = Object.freeze({ ...prepared });
+        const response = await sdk.fetchJSON(DESKTOP_API + '/targets', {
+          method: 'POST', signal,
+          body: JSON.stringify({ peer_id: 'local', profile: owner.profile,
+            session_id: owner.storedSessionId, tab_id: tabId }),
+        });
+        if (signal?.aborted || ownerKey(currentController()?.owner) !== ownerKey(owner)) {
+          throw new DOMException('Request cancelled', 'AbortError');
+        }
+        const matches = (response?.ok && Array.isArray(response.targets) ? response.targets : [])
+          .filter(target => target.peer_id === 'local' && target.profile === owner.profile &&
+            target.session_id === owner.storedSessionId);
+        if (matches.length !== 1) throw new Error('The current conversation is unavailable. Reopen it and try again.');
+        return matches[0];
+      } finally {
+        onPreparing(false, owner);
+      }
+    },
     validateVoiceMode(status) {
       if (!status || !['live', 'native'].includes(status.voiceMode)) {
         throw new Error('Desktop Talk supports GPT-Live and OpenAI Realtime. ' +
@@ -79,49 +127,86 @@ export function createDesktopTalkSDK(context, controller) {
       }
     },
   };
+  return sdk;
 }
 
-function DesktopTalkPanel({ context, controller }) {
+function DesktopTalkPanel({ context, controller, onPreparing }) {
   const controllerRef = React.useRef(controller);
   controllerRef.current = controller;
-  const currentOwner = ownerKey(controller.owner);
   const surface = React.useMemo(() => createTalkSurface(
-    createDesktopTalkSDK(context, () => controllerRef.current)), [context, currentOwner]);
+    createDesktopTalkSDK(context, () => controllerRef.current, onPreparing)), [context]);
   return h(React.Fragment, null,
     h('style', null, TALK_CSS),
-    h(surface.TalkPage));
+    h(surface.TalkPage, { presentation: DesktopTalkView }));
+}
+
+export function openFocusedTalk() {
+  const state = HermesSDK.host?.state;
+  const focused = state?.focusedSessionOwner?.get();
+  const stored = state?.focusedStoredSessionId?.get() || null;
+  const runtime = state?.focusedSessionId?.get() || null;
+  const matches = [...desktopOpeners].filter(entry => {
+    const candidate = entry.owner();
+    return focused && candidate?.connectionId === focused.connectionId &&
+      candidate?.profile === focused.profile && (candidate?.storedSessionId || null) === stored &&
+      (stored || (candidate?.sessionId || null) === runtime);
+  });
+  if (matches.length === 1) matches[0].open();
+  else HermesSDK.host?.notify('Open a connected conversation, then choose Talk beside its message box.');
 }
 
 function DesktopTalkAction() {
   const useController = HermesSDK.useComposerVoiceController || (() => null);
   const controller = useController();
-  const [openedOwner, setOpenedOwner] = React.useState(null);
+  const [opened, setOpened] = React.useState(null);
+  const controllerRef = React.useRef(controller);
+  controllerRef.current = controller;
+  const preparingRef = React.useRef(false);
   const currentOwner = ownerKey(controller?.owner);
   const unavailable = desktopAvailability(controller);
-  const open = openedOwner !== null && openedOwner === currentOwner;
-  React.useEffect(() => { setOpenedOwner(null); }, [currentOwner]);
+  const open = opened !== null && (opened.expectedKey === currentOwner || preparingRef.current);
+  const openPanel = () => {
+    const key = ownerKey(controllerRef.current?.owner);
+    setOpened({ initialKey: key, expectedKey: key });
+  };
+  React.useEffect(() => {
+    const entry = { owner: () => controllerRef.current?.owner, open: openPanel };
+    desktopOpeners.add(entry);
+    return () => desktopOpeners.delete(entry);
+  }, []);
+  React.useEffect(() => {
+    if (opened && opened.expectedKey !== currentOwner && !preparingRef.current) setOpened(null);
+  }, [currentOwner, opened]);
+  const onPreparing = (value, nextOwner) => {
+    preparingRef.current = value;
+    if (!value) {
+      const expectedKey = ownerKey(nextOwner);
+      setOpened(previous => previous && expectedKey === ownerKey(controllerRef.current?.owner)
+        ? { ...previous, expectedKey } : null);
+    }
+  };
 
   return h(React.Fragment, null,
     h(HermesSDK.Button, {
       type: 'button', variant: 'ghost', size: 'sm', title: 'Open Hermes Talk',
       'aria-label': 'Open Hermes Talk',
-      onClick: () => setOpenedOwner(currentOwner),
+      onClick: openPanel,
     }, 'Talk'),
     h(HermesSDK.Dialog, {
       open,
-      onOpenChange: value => setOpenedOwner(value ? currentOwner : null),
+      onOpenChange: value => value ? openPanel() : setOpened(null),
     }, h(HermesSDK.DialogContent, {
-      className: 'w-[min(1100px,95vw)] max-w-[95vw]',
-      bodyClassName: 'max-h-[85vh] overflow-y-auto',
+      className: 'w-[min(520px,95vw)] max-w-[95vw]',
+      bodyClassName: 'max-h-[80vh] overflow-y-auto',
       onSubmit: event => event.stopPropagation(),
     },
     h(HermesSDK.DialogHeader, null,
       h(HermesSDK.DialogTitle, null, 'Hermes Talk'),
       h(HermesSDK.DialogDescription, null,
-        'Choose a task and start voice. Closing this window ends audio; accepted work continues.')),
+        'Talk to Hermes in this conversation.')),
     open && (unavailable || !desktopContext
       ? h('p', { role: 'status' }, unavailable || 'The Talk plugin is not ready.')
-      : h(DesktopTalkPanel, { key: currentOwner, context: desktopContext, controller })))));
+      : h(DesktopTalkPanel, { key: opened.initialKey, context: desktopContext, controller, onPreparing })))));
 }
 
 export default {
@@ -133,6 +218,11 @@ export default {
     context.register({
       id: 'talk', area: 'composer.actions', order: 45,
       render: () => h(DesktopTalkAction),
+    });
+    context.register({
+      id: 'talk-topbar', area: HermesSDK.TITLEBAR_AREAS?.right || 'titleBar.right', order: 45,
+      data: { id: 'hermes-talk', label: 'Talk', title: 'Talk to Hermes',
+        icon: h(HermesSDK.Codicon, { name: 'mic' }), onSelect: openFocusedTalk },
     });
     context.onDispose(() => {
       if (desktopContext === context) desktopContext = null;

@@ -61,7 +61,7 @@ function createTalkSurface(SDK) {
   async function apiCall(path, init, timeoutMs) {
     const opts = Object.assign({}, init || {});
     const headers = Object.assign({}, opts.headers || {});
-    const token = readToken();
+    const token = SDK.managedAuthentication ? "" : readToken();
     if (token) headers["x-talk-token"] = token;
     if (opts.body) headers["content-type"] = "application/json";
     opts.headers = headers;
@@ -1768,7 +1768,7 @@ function createTalkSurface(SDK) {
       : "Steering unavailable · " + ((steering || {}).reason || "not refreshed");
   }
 
-  function TalkPage() {
+  function TalkPage({ presentation } = {}) {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [voice, setVoice] = useState("");
@@ -1779,7 +1779,7 @@ function createTalkSurface(SDK) {
     const [error, setError] = useState("");
     const [needsToken, setNeedsToken] = useState(false);
     const [tokenDraft, setTokenDraft] = useState("");
-    const [profile, setProfile] = useState("");
+    const [profile, setProfile] = useState(SDK.desktopOwner?.profile || "");
     const [peerId, setPeerId] = useState("local");
     const [peers, setPeers] = useState([]);
     const [localProfiles, setLocalProfiles] = useState([]);
@@ -1870,12 +1870,23 @@ function createTalkSurface(SDK) {
       const catalogEpoch = connectionEpoch.current;
       const body = { peer_id: peerId, tab_id: tabId.current };
       if (profile.trim()) body.profile = profile.trim();
+      if (SDK.desktopOwner) {
+        if (!SDK.desktopOwner.storedSessionId) return () => controller.abort();
+        body.session_id = SDK.desktopOwner.storedSessionId;
+      }
       void apiCall("/targets", { method: "POST", body: JSON.stringify(body), signal: controller.signal }).then((res) => {
         if (controller.signal.aborted) return;
         if (!res || !res.ok || !Array.isArray(res.targets)) throw new Error("Authorized target catalog is unavailable.");
         setTasks(res.targets);
         setPeers(res.peers || []);
         setUnavailable(res.unavailable || []);
+        if (SDK.desktopOwner && !transportRef.current) {
+          const matches = res.targets.filter((item) => item.peer_id === "local" &&
+            item.profile === SDK.desktopOwner.profile &&
+            item.session_id === SDK.desktopOwner.storedSessionId);
+          if (matches.length !== 1) throw new Error("The current conversation is unavailable. Reopen it and try again.");
+          setSelectedTask(matches[0].target_id);
+        }
         if (peerId === "local") setLocalProfiles((prev) => Array.from(new Set(prev.concat(res.targets.map((item) => item.profile)))).filter(Boolean));
         if (catalogEpoch === connectionEpoch.current && res.selection) {
           const current = res.selection.current;
@@ -1896,7 +1907,7 @@ function createTalkSurface(SDK) {
           if (!transportRef.current) {
             lastTask.current = current || null;
             setSelection(res.selection);
-            if (current) setSelectedTask(current.target_id);
+            if (current && !SDK.desktopOwner) setSelectedTask(current.target_id);
           }
         }
       }).catch((err) => { if (!controller.signal.aborted) setCatalogError(errorText(err)); });
@@ -1962,16 +1973,18 @@ function createTalkSurface(SDK) {
     }
 
     async function startTalk() {
+      if (phaseRef.current !== "idle") return;
       setError("");
       if (typeof RTCPeerConnection === "undefined" || !navigator.mediaDevices) {
         setError("Talk needs a browser with WebRTC and microphone access.");
         return;
       }
-      if (status && status.voiceMode === "live" && !selectedTask) {
+      if (status && status.voiceMode === "live" && !selectedTask && !SDK.prepareTask) {
         setError("Choose an authorized task before starting GPT-Live.");
         return;
       }
       setPhase("starting");
+      phaseRef.current = "starting";
       setLive("");
       setTranscript([]);
       setStages({});
@@ -1981,12 +1994,22 @@ function createTalkSurface(SDK) {
       const controller = new AbortController();
       sessionAbort.current = controller;
       try {
+        let targetId = selectedTask;
+        if (SDK.prepareTask) {
+          const target = await SDK.prepareTask({ tabId: tabId.current, signal: controller.signal });
+          if (epoch !== connectionEpoch.current || controller.signal.aborted) return;
+          if (!target?.target_id) throw new Error("The current conversation could not be prepared.");
+          targetId = target.target_id;
+          setSelectedTask(targetId);
+          setTasks((rows) => rows.filter((row) => row.target_id !== targetId).concat(target));
+          setCatalogError("");
+        }
         if (SDK.validateVoiceMode) {
           await validateVoiceMode(status);
           if (epoch !== connectionEpoch.current || controller.signal.aborted) return;
         }
         const body = voice ? { voice: voice } : {};
-        if (selectedTask) body.task = { target_id: selectedTask, tab_id: tabId.current,
+        if (targetId) body.task = { target_id: targetId, tab_id: tabId.current,
           page_reference: { url: window.location.href, title: document.title } };
         const session = await apiCall("/session", {
           method: "POST", body: JSON.stringify(body), signal: controller.signal,
@@ -1995,7 +2018,7 @@ function createTalkSurface(SDK) {
           makeTransport(session, {}).stop();
           return;
         }
-        if (selectedTask && (!session.task || session.task.target_id !== selectedTask ||
+        if (targetId && (!session.task || session.task.target_id !== targetId ||
             session.task.tab_id !== tabId.current)) {
           makeTransport(session, {}).stop();
           throw new Error("Bound task context did not match the selected task; join was refused.");
@@ -2006,6 +2029,7 @@ function createTalkSurface(SDK) {
         if (transportRef.current) transportRef.current.stop();
         transportRef.current = null;
         setPhase("idle");
+        phaseRef.current = "idle";
         setLive("");
         handleError(err);
       } finally {
@@ -2021,6 +2045,7 @@ function createTalkSurface(SDK) {
       if (transportRef.current) transportRef.current.stop();
       transportRef.current = null;
       setPhase("idle");
+      phaseRef.current = "idle";
       setLive("");
       setSending(false);
     }
@@ -2155,6 +2180,14 @@ function createTalkSurface(SDK) {
     const starting = phase === "starting";
     const bound = Boolean((transportRef.current && transportRef.current.task) || lastTask.current);
     const returnDepth = Number((selection || {}).return_depth || 0);
+
+    if (presentation) return h(presentation, {
+      status, loading, ready, active, starting, live, error, catalogError, needsToken,
+      tasks, selectedTask, taskState, transcript, results, typed, sending, switching,
+      returnDepth, bound, voice, startTalk, stopTalk, refresh, setTyped, sendTyped,
+      switchTarget, showResult, saveUpdatePreference, setVoice,
+      refreshCatalog: () => { setCatalogReload((value) => value + 1); void refresh(); },
+    });
 
     return h("div", { className: "ht-page" },
       h("div", { className: "ht-head" },
