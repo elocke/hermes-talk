@@ -2150,6 +2150,7 @@ function createTalkSurface(SDK) {
     function saveToken() {
       writeToken(tokenDraft.trim());
       setTokenDraft("");
+      setCatalogReload((value) => value + 1);
       void refresh();
     }
 

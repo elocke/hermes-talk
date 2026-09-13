@@ -62,13 +62,21 @@ export function createDesktopTalkSDK(context, controller) {
       const headers = new Headers(options.headers || {});
       // Keep in-flight receipts on their captured owner, including a late /close.
       // The shared UI's generation checks retire results after navigation.
-      return context.rest(suffix, {
-        method: options.method,
-        body: typeof options.body === 'string' ? JSON.parse(options.body) : options.body,
-        timeoutMs: timeoutMs || 30000,
-        scope,
-        pluginToken: headers.get('x-talk-token') || undefined,
-      });
+      try {
+        return await context.rest(suffix, {
+          method: options.method,
+          body: typeof options.body === 'string' ? JSON.parse(options.body) : options.body,
+          timeoutMs: timeoutMs || 30000,
+          scope,
+          pluginToken: headers.get('x-talk-token') || undefined,
+        });
+      } catch (error) {
+        const prefix = "Error invoking remote method 'hermes:api': Error: ";
+        if (typeof error?.message === 'string' && error.message.startsWith(prefix)) {
+          throw new Error(error.message.slice(prefix.length));
+        }
+        throw error;
+      }
     },
   };
 }

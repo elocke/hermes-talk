@@ -450,6 +450,41 @@ const button = (tree, text) => nodes(tree).find((node) => node.tag === "button" 
 """
 
 
+def test_token_submission_refreshes_status_and_authorized_targets():
+    script = PAGE_HARNESS + r"""
+(async()=>{
+const baseFetch=fetchOverride, tokens=new Map();
+window.sessionStorage={getItem:key=>tokens.get(key)||'',
+  setItem:(key,value)=>tokens.set(key,value),removeItem:key=>tokens.delete(key)};
+fetchOverride=(url,body,opts)=>{
+  if(opts.headers['x-talk-token']!=='fixture-token') throw new Error('401: Talk token required');
+  return baseFetch(url,body);
+};
+render(); await drain();
+let tree=render();
+assert(button(tree,'Use token'),'Auth refusal must expose token entry');
+assert(label(tree).includes('Target list unavailable'));
+nodes(tree).find(node=>node.props.placeholder==='TALK_DASHBOARD_TOKEN')
+  .props.onChange({target:{value:'fixture-token'}});
+tree=render();button(tree,'Use token').props.onClick();
+render();await drain();tree=render();
+assert.equal(button(tree,'Use token'),undefined,'Accepted token should dismiss prompt');
+assert(!label(tree).includes('Target list unavailable'),'Task catalog must recover with status');
+assert(label(tree).includes('Selected task'),'Authorized tasks must load without a second click');
+assert.equal(requests.filter(row=>row.url.endsWith('/targets')).length,2);
+assert.equal(transports.length,0,'Token submission must not start audio');
+process.exit(0);
+})().catch(error=>{console.error(error);process.exit(1);});
+"""
+    result = run(
+        ["node", "-e", script, str(DASHBOARD_JS)],
+        capture_output=True,
+        text=True,
+        timeout=NODE_TIMEOUT_S,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 TARGET_PAGE_HARNESS = PAGE_HARNESS + r"""
 const baseFetch = fetchOverride, connections = new Map();
 const targetRows = [

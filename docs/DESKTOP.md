@@ -28,8 +28,11 @@ microphone access. This page does not imply those changes are in stock Desktop.
 3. In Desktop **Capabilities → Plugins**, enable **Hermes Talk** if its Desktop
    contribution is disabled. Installed agent packages are opt-in on Desktop.
 4. Open a connected Hermes conversation, then click **Talk** beside its composer.
-5. Select the authorized Hermes task in the Talk window and click **Start**.
-6. Allow the requested microphone access. Click **Stop**, or close the Talk window,
+5. If Talk asks for `TALK_DASHBOARD_TOKEN`, enter the token configured on the selected
+   host and click **Use token**. The task list refreshes after authentication.
+   This is the Talk access token, not a provider API key.
+6. Select the authorized Hermes task in the Talk window and click **Start**.
+7. Allow the requested microphone access. Click **Stop**, or close the Talk window,
    to end audio. Accepted background work continues in its owning task.
 
 The plugin installer installs the repository, including `desktop/plugin.js`.

@@ -126,6 +126,25 @@ assert.equal(disposers.length,1);disposers[0]();
 """)
 
 
+@pytest.mark.parametrize("status", [401, 403, 503])
+def test_desktop_exposes_http_status_inside_electron_errors(status):
+    run_node(r"""
+(async()=>{
+const message = STATUS + ': {"detail":"fixture refusal"}';
+host.rest=async()=>{
+  throw new Error("Error invoking remote method 'hermes:api': Error: " + message);
+};
+await assert.rejects(createSDK().fetchJSON('/api/plugins/hermes-talk/status'),
+  error=>error.message===message);
+const unchanged = new Error('Temporary outage while retrieving item 401');
+host.rest=async()=>{throw unchanged;};
+await assert.rejects(createSDK().fetchJSON('/api/plugins/hermes-talk/status'),
+  error=>error===unchanged);
+assert.equal(acquires,0);
+})().catch(e=>{console.error(e);process.exitCode=1;});
+""".replace("STATUS", str(status)))
+
+
 def test_same_owner_controller_refresh_preserves_page_and_updates_acquisition():
     run_node(r"""
 (async()=>{
