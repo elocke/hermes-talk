@@ -96,6 +96,12 @@ function createTalkSurface(SDK) {
     return apiCall(path, { method: "POST", body: JSON.stringify(body || {}) }, timeoutMs);
   }
 
+  function pageReference() {
+    const url = window.location.href;
+    if (!/^https?:\/\//i.test(url)) return undefined;
+    return { url, title: document.title };
+  }
+
   function clientId(prefix) {
     return prefix + window.crypto.randomUUID().replace(/-/g, "");
   }
@@ -2014,7 +2020,7 @@ function createTalkSurface(SDK) {
         }
         const body = voice ? { voice: voice } : {};
         if (targetId) body.task = { target_id: targetId, tab_id: tabId.current,
-          page_reference: { url: window.location.href, title: document.title } };
+          page_reference: pageReference() };
         const session = await apiCall("/session", {
           method: "POST", body: JSON.stringify(body), signal: controller.signal,
         });
@@ -2076,7 +2082,7 @@ function createTalkSurface(SDK) {
       const owner = old && old.task ? old.task.context : lastTask.current;
       if (!owner || !owner.connection_id || switchAbort.current) return false;
       const body = { connection_id: owner.connection_id, generation: owner.generation,
-        page_reference: { url: window.location.href, title: document.title } };
+        page_reference: pageReference() };
       if (intent.back === true) body.back = true;
       else if (typeof intent.target_id === "string" && intent.target_id) body.target_id = intent.target_id;
       else if (typeof intent.reference === "string" && intent.reference.trim()) body.reference = intent.reference.trim();

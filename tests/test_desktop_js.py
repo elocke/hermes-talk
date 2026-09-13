@@ -1,5 +1,6 @@
 """Exercise the bundled Desktop entry against the host SDK boundary."""
 
+import json
 from pathlib import Path
 from subprocess import run
 
@@ -30,9 +31,9 @@ const createSDK=()=>context.createDesktopTalkSDK(host,controller);
 """
 
 
-def run_node(script):
+def run_node(script, *, source="desktop/plugin.js"):
     result = run(
-        ["node", "-e", HARNESS + script, str(ROOT / "desktop/plugin.js")],
+        ["node", "-e", HARNESS + script, str(ROOT / source)],
         capture_output=True,
         text=True,
         timeout=20,
@@ -243,3 +244,67 @@ for (const scenario of ['other-task','other-host','resume-failed','cancel','wron
 }
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """)
+
+@pytest.mark.parametrize(("message", "expected", "retry"), [
+    (
+        '400: {"error":"invalid_event","detail":"file://fixture/private?token=fixture-private-token"}',
+        "Talk could not complete this request. Try again.",
+        True,
+    ),
+    (
+        '401: {"detail":"fixture-private-token"}',
+        "Reconnect to this Hermes connection and try again.",
+        False,
+    ),
+    (
+        '403: {"detail":"fixture-private-token"}',
+        "Reconnect to this Hermes connection and try again.",
+        False,
+    ),
+    (
+        "Temporary failure retrieving item 401: fixture-private-token",
+        "Talk could not complete this request. Try again.",
+        True,
+    ),
+    (
+        '503: {"detail":"fixture-private-token"}',
+        "Talk is temporarily unavailable. Try again.",
+        True,
+    ),
+    (
+        "NotAllowedError: Permission denied; fixture-private-token",
+        "Allow microphone access for Hermes in your system settings, then try again.",
+        True,
+    ),
+])
+def test_desktop_notice_distinguishes_request_failure_from_auth(message, expected, retry):
+    run_node(r"""
+const message = __MESSAGE__, expected = __EXPECTED__, retry = __RETRY__;
+let starts = 0, refreshes = 0;
+const tree = context.DesktopTalkView({
+  status:{configured:true,source:'subscription'},ready:true,error:new Error(message),
+  tasks:[],transcript:[],results:{},startTalk(){starts++;},refresh(){refreshes++;},
+});
+function nodes(node) {
+  if (!node || typeof node !== 'object') return [];
+  return [node,...(node.children||[]).flat(Infinity).flatMap(nodes)];
+}
+function text(node) {
+  if (typeof node === 'string') return node;
+  return (node?.children||[]).flat(Infinity).map(text).join(' ');
+}
+const alert = nodes(tree).find(node=>node.props?.role==='alert');
+assert(alert,'the failure must produce an actionable notice');
+assert(text(alert).includes(expected));
+const action = nodes(alert).find(node=>node.type==='button');
+assert.equal(text(action),retry?'Try again':'Check connection');
+assert.equal(action.props.type,'button');
+action.props.onClick();
+assert.equal(starts,retry?1:0);assert.equal(refreshes,retry?0:1);
+for (const privateDetail of ['fixture-private-token','invalid_event','file://']) {
+  assert(!text(tree).includes(privateDetail),'raw server error details must stay out of the view');
+}
+assert.equal(calls.length,0);assert.equal(acquires,0);
+""".replace("__MESSAGE__", json.dumps(message))
+        .replace("__EXPECTED__", json.dumps(expected))
+        .replace("__RETRY__", json.dumps(retry)), source="ui/desktop-view.js")

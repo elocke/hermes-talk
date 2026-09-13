@@ -23,7 +23,7 @@ const DESKTOP_TALK_VIEW_CSS = `
 function desktopTalkNotice(value, needsToken) {
   if (!value && !needsToken) return null;
   const message = String(value?.message || value || '');
-  if (needsToken || /\b(?:401|403)\b/.test(message)) {
+  if (needsToken || /^(?:401|403)\b/.test(message)) {
     return { text: 'Reconnect to this Hermes connection and try again.' };
   }
   if (/NotAllowedError|PermissionDenied|permission denied|microphone.*(?:denied|blocked)|(?:denied|blocked).*microphone/i.test(message)) {
@@ -38,7 +38,7 @@ function desktopTalkNotice(value, needsToken) {
   if (/\b503\b|temporarily unavailable|service_unavailable/i.test(message)) {
     return { text: 'Talk is temporarily unavailable. Try again.', retry: true };
   }
-  return { text: 'Reconnect to this Hermes connection and try again.' };
+  return { text: 'Talk could not complete this request. Try again.', retry: true };
 }
 
 function desktopTalkSource(source) {
