@@ -205,7 +205,7 @@ def dashboard_token() -> str | None:
 
 
 def _presented_token(request) -> str:
-    """The token this request carries, from either accepted header."""
+    """The token this request carries, including the Desktop plugin bridge."""
 
     getter = getattr(getattr(request, "headers", None), "get", None)
     if getter is None:
@@ -213,6 +213,9 @@ def _presented_token(request) -> str:
     direct = (getter(DASHBOARD_TOKEN_HEADER) or "").strip()
     if direct:
         return direct
+    plugin_token = (getter("x-hermes-plugin-token") or "").strip()
+    if plugin_token:
+        return plugin_token
     authorization = (getter("authorization") or "").strip()
     if authorization.lower().startswith("bearer "):
         return authorization[len("bearer ") :].strip()

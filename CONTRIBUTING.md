@@ -88,6 +88,15 @@ uv run --extra dev ruff check .
 Either way you get the ruff version pinned in the dev extra (see
 `pyproject.toml`). The pin is load-bearing, see below.
 
+Dashboard and Desktop share `ui/talk-surface.js`. Edit that source and the
+appropriate `ui/*-entry.js`, then run `python scripts/build_ui.py`. Commit both
+generated entrypoints: `dashboard/dist/index.js` and `desktop/plugin.js`.
+`python scripts/build_ui.py --check` verifies they match without rewriting files.
+Desktop is a single ESM bundle with inline CSS because the host loads it from a
+Blob URL; relative imports and asset paths do not resolve against the plugin.
+The focused surface checks are `pytest tests/test_dashboard_js.py
+tests/test_ui_build.py tests/test_desktop_js.py -q` and require Node.js.
+
 **Why `--extra dev` on every `uv run`:** pytest and the pinned ruff live in
 the `dev` extra, not in the dependencies. `uv run` only guarantees the base
 dependencies are present, so on a fresh clone — or after anything that

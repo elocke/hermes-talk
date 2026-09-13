@@ -521,6 +521,25 @@ def test_a_near_miss_token_is_rejected(monkeypatch):
         assert excinfo.value.status_code == 401
 
 
+def test_desktop_bridge_token_uses_the_existing_dashboard_gate(monkeypatch):
+    monkeypatch.setenv(api.DASHBOARD_TOKEN_ENV, "plugin-secret")
+    api.require_dashboard_auth(FakeRequest(
+        headers={"x-hermes-plugin-token": "plugin-secret", "authorization": "Bearer host-token"},
+        host="10.0.0.7",
+    ))
+    for token in ("wrong", "", "plugin-secre"):
+        with pytest.raises(api.HTTPException) as excinfo:
+            api.require_dashboard_auth(FakeRequest(
+                headers={"x-hermes-plugin-token": token, "authorization": "Bearer host-token"},
+                host="10.0.0.7",
+            ))
+        assert excinfo.value.status_code == 401
+    with pytest.raises(api.HTTPException):
+        api.require_dashboard_auth(FakeRequest(headers={
+            "x-talk-token": "wrong", "x-hermes-plugin-token": "plugin-secret",
+        }))
+
+
 def test_token_comparison_is_constant_time(monkeypatch):
     """Structural proof, not a timing measurement.
 

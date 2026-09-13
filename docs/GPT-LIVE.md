@@ -30,6 +30,7 @@ recipients and recovery behavior are described in
 | Surface | Subscription audio | API audio | Dependencies |
 |---|---|---|---|
 | Dashboard | Browser WebRTC | Browser WebRTC | Base package on server; browser microphone permission |
+| Desktop Talk action | Renderer WebRTC | Renderer WebRTC | Matching microphone-ownership and pinned-routing host; [Desktop setup](DESKTOP.md) |
 | Terminal | `aiortc` WebRTC | `aiohttp` WebSocket | `[audio,live]` for subscription; `[audio]` for API |
 | Discord | `aiortc` WebRTC | `aiohttp` WebSocket | `[live]` for subscription, host Discord voice dependencies |
 
