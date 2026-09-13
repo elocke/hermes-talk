@@ -25,7 +25,7 @@ microphone access. This page does not imply those changes are in stock Desktop.
 1. Install the matching host build and this plugin candidate in the Hermes home
    used by Desktop. Preserve the old host revision and plugin directory for rollback.
 2. Restart Desktop so it loads the new renderer SDK and plugin entrypoint.
-3. In Desktop **Settings → Plugins**, enable **Hermes Talk** if its Desktop
+3. In Desktop **Capabilities → Plugins**, enable **Hermes Talk** if its Desktop
    contribution is disabled. Installed agent packages are opt-in on Desktop.
 4. Open a connected Hermes conversation, then click **Talk** beside its composer.
 5. Select the authorized Hermes task in the Talk window and click **Start**.
