@@ -220,7 +220,7 @@ export default {
       render: () => h(DesktopTalkAction),
     });
     context.register({
-      id: 'talk-topbar', area: HermesSDK.TITLEBAR_AREAS?.right || 'titleBar.right', order: 45,
+      id: 'talk-topbar', area: 'titleBar.tools.right', order: 45,
       data: { id: 'hermes-talk', label: 'Talk', title: 'Talk to Hermes',
         icon: h(HermesSDK.Codicon, { name: 'mic' }), onSelect: openFocusedTalk },
     });

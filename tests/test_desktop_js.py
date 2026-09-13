@@ -120,7 +120,8 @@ def test_desktop_registers_inside_the_composer_without_starting_audio():
 context.plugin.register(host);
 assert.equal(context.plugin.id,'hermes-talk');assert.equal(registered.length,2);
 assert.equal(registered[0].area,'composer.actions');
-assert.equal(registered[1].area,'titleBar.right');
+assert.equal(registered[1].area,'titleBar.tools.right');
+assert.equal(typeof registered[1].data.onSelect,'function');
 assert.equal(typeof registered[0].render().type,'function');
 assert.equal(acquires,0);assert.equal(calls.length,0);
 assert.equal(disposers.length,1);disposers[0]();
