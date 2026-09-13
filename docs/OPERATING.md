@@ -725,13 +725,15 @@ read-only market lookups — `get_quote`, `get_gex`, `get_levels`,
 `get_session_range`, `get_chart_read` — whose handlers resolve the futures
 front month first (`desk_front_month.py`, pure stdlib) and compact the
 answer to a short JSON object the model reads aloud, number first. Each
-handler returns `{"error": …}` on any failure.
+handler returns `{"error": …}` on any failure — including when the flag,
+the URL or the bearer is missing (fail-closed at call time, not only at
+advertising time).
 
 | Variable | Default | Effect / failure mode |
 |---|---|---|
 | `TALK_DESK_TOOLS` | unset | `1`/`true`/`yes`/`on` advertises the five desk tools after the base set. Anything else is off. |
-| `TALK_DESK_MCP_URL` | `http://192.168.2.210:4000/trading_stack/mcp` | The trading MCP server (LiteLLM's per-server endpoint). |
-| `TALK_DESK_MCP_KEY` | unset | Bearer for that server — the trading profile's LiteLLM key, set in the profile's `.env`. Unset = no auth header. |
+| `TALK_DESK_MCP_URL` | unset | The trading MCP server (LiteLLM's per-server endpoint, e.g. `http://<litellm>:4000/trading_stack/mcp`). **Required**: unset = every desk tool answers `{"error": …}` and no request is made. |
+| `TALK_DESK_MCP_KEY` | unset | Bearer for that server — the trading profile's LiteLLM key, set in the profile's `.env`. **Required**: unset = every desk tool answers `{"error": …}`; an unauthenticated request is never sent. |
 | `TALK_DESK_MCP_TIMEOUT_S` | `2` | Per-request timeout, capped at 10. |
 
 ### Host

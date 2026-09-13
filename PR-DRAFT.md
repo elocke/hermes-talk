@@ -49,12 +49,25 @@ change that has not landed and is default-deny anyway.
   `execute_talk_tool()` falls back to `talk_mcp_tools.handler_for(name)` for
   registered names — an unregistered name is still `TalkToolError`.
 - `talk_operator_auth.py`: `authorize_tool()` treats a REGISTERED extra tool
-  as read-only. The registry only ever holds allowlisted names, so this cannot
-  widen to anything the operator did not write down. The five desk names are
-  added to `READ_ONLY_TALK_TOOLS` statically.
+  as read-only — **by the operator's declaration**, not by inspection: the
+  plugin cannot know what a server tool does. The check runs AFTER the
+  built-in `MUTATING_TALK_TOOLS` denial, and `extra_talk_tools(reserved=…)`
+  refuses to register any entry whose mapped function name collides with a
+  built-in (`delegate.task` → `delegate_task` is dropped with a warning), so
+  a server tool can neither shadow a built-in schema nor borrow its
+  classification. The five desk names are added to `READ_ONLY_TALK_TOOLS`
+  statically.
+- Proposed upstream default: `TALK_EXTRA_MCP_READ_ONLY` (default `true`)
+  naming the declaration explicitly; with it `false`, extra tools would fall
+  into the operator-only path like `MUTATING_TALK_TOOLS`. Not implemented
+  here — maintainers may prefer the declaration to be per-tool.
 - Every knob is resolved at call time (no import-time caching); the bearer is
   read by NAME, sent only to the configured server, never logged, and never
   part of a result. No new dependency (`httpx` is already a runtime dep).
+- Desk handlers are dispatchable whenever they are in `_HANDLERS`, so they
+  gate themselves at call time: flag off, URL unset or bearer unset → spoken
+  `{"error": …}` and NO request (there is no default URL; an unauthenticated
+  request never leaves the plugin).
 - Desk preset (`desk_tools.py` + `desk_front_month.py`): schemas match the
   `_TOOL_*` dict shape; handlers return compact JSON (number first) and
   `{"error": …}` on any failure; front month by CME calendar rules (quarterly

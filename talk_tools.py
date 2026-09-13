@@ -488,7 +488,7 @@ def default_talk_tools(*, pausable: bool = False) -> list[dict]:
     except Exception as exc:  # noqa: BLE001 — a missing tool, never a dead session
         _log.debug("desk tools unavailable: %s: %s", type(exc).__name__, exc)
     try:
-        tools.extend(talk_mcp_tools.extra_talk_tools())
+        tools.extend(talk_mcp_tools.extra_talk_tools(reserved=RESERVED_TOOL_NAMES))
     except Exception as exc:  # noqa: BLE001 — a missing tool, never a dead session
         _log.debug("extra MCP tools unavailable: %s: %s", type(exc).__name__, exc)
     return copy.deepcopy(tools)
@@ -497,6 +497,8 @@ def default_talk_tools(*, pausable: bool = False) -> list[dict]:
 def execute_talk_tool(name: str, arguments: dict | None) -> str:
     """Dispatch one tool call and return plain text for the model to speak."""
 
+    # Built-ins first, always: an extra MCP tool can never take a built-in's
+    # name (RESERVED_TOOL_NAMES), so this order is belt and braces.
     handler = _HANDLERS.get(name) or talk_mcp_tools.handler_for(name)
     if handler is None:
         raise TalkToolError(f"unknown talk tool: {name!r}")
@@ -903,6 +905,9 @@ _HANDLERS = {
     # TALK_DESK_TOOLS=1 (default_talk_tools), the same split as search_vault.
     **desk_tools.DESK_HANDLERS,
 }
+
+#: Names an extra MCP tool may never be advertised or dispatched under.
+RESERVED_TOOL_NAMES = frozenset(_HANDLERS)
 
 
 __all__ = [
