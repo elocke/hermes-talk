@@ -41,8 +41,10 @@ URL_ENV = "TALK_DESK_MCP_URL"
 KEY_ENV = "TALK_DESK_MCP_KEY"
 TIMEOUT_ENV = "TALK_DESK_MCP_TIMEOUT_S"
 
-#: LiteLLM's per-server MCP endpoint for the trading stack (the fork's home).
-DEFAULT_MCP_URL = "http://192.168.2.210:4000/trading_stack/mcp"
+#: No default server: an unset ``TALK_DESK_MCP_URL`` means no call is ever
+#: made (the fork's home is LiteLLM's per-server endpoint,
+#: ``http://<litellm>/trading_stack/mcp`` — set it in the profile env).
+DEFAULT_MCP_URL = ""
 
 #: MCP tool names as the gateway accepts them on ``tools/call`` (bare).
 MCP_QUOTE = "nt8.quote.get"
@@ -175,6 +177,24 @@ def enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def configured() -> str | None:
+    """Why the desk tools cannot run right now, or ``None`` when they can.
+
+    Fail closed on all three: the flag, the server URL and the bearer. A
+    handler is dispatchable whenever it is in ``_HANDLERS``, so the gate is
+    here, not only at advertising time — no unauthenticated request ever
+    leaves this module.
+    """
+
+    if not enabled():
+        return f"desk tools are not enabled ({ENABLE_ENV} is off)"
+    if not (os.environ.get(URL_ENV) or "").strip():
+        return f"desk tools are not configured ({URL_ENV} is unset)"
+    if not (os.environ.get(KEY_ENV) or "").strip():
+        return f"desk tools are not configured ({KEY_ENV} is unset)"
+    return None
+
+
 def endpoint() -> talk_mcp_tools.MCPEndpoint:
     url = (os.environ.get(URL_ENV) or "").strip() or DEFAULT_MCP_URL
     return talk_mcp_tools.MCPEndpoint(
@@ -272,6 +292,9 @@ def _guard(handler):
     """Every desk handler speaks its failure; nothing here raises into the session."""
 
     def wrapped(arguments: dict) -> str:
+        refusal = configured()
+        if refusal is not None:
+            return _error(refusal)
         try:
             return handler(arguments or {})
         except talk_mcp_tools.MCPError as exc:
@@ -405,14 +428,20 @@ def _handle_get_session_range(arguments: dict) -> str:
     if not symbol:
         return _error("get_session_range needs a symbol")
     names, _resolved = _instruments(symbol)
-    instrument = names[0]
-    payload = _mcp(MCP_BARS, {"instrument": instrument, "timeframe": DAILY_TIMEFRAME, "count": 2})
-    if isinstance(payload, dict) and payload.get("error"):
-        return _error(f"{instrument}: {payload['error']}")
-    rows = payload.get("bars") if isinstance(payload, dict) else payload
-    rows = [row for row in rows or [] if isinstance(row, dict)]
+    rows: list[dict] = []
+    tried: list[str] = []
+    for instrument in names:
+        args = {"instrument": instrument, "timeframe": DAILY_TIMEFRAME, "count": 2}
+        payload = _mcp(MCP_BARS, args)
+        if isinstance(payload, dict) and payload.get("error"):
+            return _error(f"{instrument}: {payload['error']}")
+        found = payload.get("bars") if isinstance(payload, dict) else payload
+        rows = [row for row in found or [] if isinstance(row, dict)]
+        tried.append(instrument)
+        if rows:
+            break
     if not rows:
-        return _error(f"no daily bars for {instrument} — data not loaded or NT8 not connected")
+        return _error(f"no daily bars on {', '.join(tried)} — data not loaded or NT8 not connected")
     today = _bar(rows[-1])
     spoken: dict = {
         "high": today["high"],
@@ -508,6 +537,7 @@ __all__ = [
     "ENABLE_ENV",
     "KEY_ENV",
     "URL_ENV",
+    "configured",
     "desk_talk_tools",
     "enabled",
     "endpoint",

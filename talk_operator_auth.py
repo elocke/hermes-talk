@@ -842,14 +842,16 @@ class DiscordToolAuthorizationLedger:
                 permit.consumed = True
         if name in READ_ONLY_TALK_TOOLS:
             return None
-        # An allowlisted extra MCP tool (talk_mcp_tools) is read-only BY THE
-        # OPERATOR'S DECLARATION — the allowlist is explicit config, and what
-        # the bearer may call at all is bounded server-side. Nothing outside
-        # that allowlist is registered, so this cannot widen to unlisted names.
-        if talk_mcp_tools.is_extra_tool(name):
-            return None
         if name in MUTATING_TALK_TOOLS:
             denial_template = MUTATION_DENIAL
+        # An allowlisted extra MCP tool (talk_mcp_tools) is read-only BY THE
+        # OPERATOR'S DECLARATION — the allowlist is explicit config, and what
+        # the bearer may call at all is bounded server-side. Checked AFTER the
+        # built-in sets so an extra tool whose mapped name collides with a
+        # built-in mutating verb can never launder it past this gate (the
+        # registry also refuses such names — see talk_tools.RESERVED).
+        elif talk_mcp_tools.is_extra_tool(name):
+            return None
         else:
             classification = classify_host_tool(name, event.get("arguments"))
             if classification == CLASS_INLINE:

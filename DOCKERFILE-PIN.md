@@ -72,10 +72,12 @@ In `/opt/data/profiles/trading/.env` on the volume (loaded by the gateway with
 
 ```
 TALK_DESK_TOOLS=1
+TALK_DESK_MCP_URL=http://192.168.2.210:4000/trading_stack/mcp
 TALK_DESK_MCP_KEY=<the trading profile's LiteLLM key — same value as LITELLM_KEY in that .env>
 ```
 
-`TALK_DESK_MCP_URL` may stay at its default (`http://192.168.2.210:4000/trading_stack/mcp`).
+All three are required: the handlers refuse (spoken `{"error": …}`, no request) when any
+one is missing, and there is no built-in default URL.
 Do NOT put `TALK_DESK_TOOLS=1` in hermes.yml: it is container-wide and would advertise
 the desk tools to every profile's Talk session, not just `trading`.
 

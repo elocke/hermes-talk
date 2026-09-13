@@ -201,12 +201,12 @@ def function_name(mcp_name: str) -> str:
 def _listed_matches(listed: str, wanted: str) -> bool:
     """A listed name matches the allowlist entry exactly, or after a gateway
     ``<server>-`` prefix (LiteLLM lists ``trading_stack-nt8.quote.get`` and
-    calls ``nt8.quote.get``)."""
+    calls ``nt8.quote.get``). Suffix match, so a prefix that itself contains
+    ``-`` (``my-server-``) still matches. What gets CALLED is the entry as
+    the operator wrote it: the full listed name on an exact match, the bare
+    name on a prefix match."""
 
-    if listed == wanted:
-        return True
-    _prefix, sep, bare = listed.partition("-")
-    return bool(sep) and bare == wanted
+    return listed == wanted or listed.endswith("-" + wanted)
 
 
 def _parameters(tool: dict) -> dict:
@@ -246,12 +246,16 @@ def _cached_listing(endpoint: MCPEndpoint, wanted: tuple[str, ...]) -> list[dict
     return tools
 
 
-def extra_talk_tools() -> list[dict]:
+def extra_talk_tools(reserved: frozenset[str] = frozenset()) -> list[dict]:
     """Realtime function schemas for the allowlisted tools, or ``[]``.
 
     Empty when nothing is configured, when the allowlist is empty, and when
     the server cannot be listed in time — a session that starts without
-    these tools beats a session that never starts.
+    these tools beats a session that never starts. ``reserved`` names (the
+    built-in talk tools) are never registered or advertised: an entry whose
+    mapped function name collides with one is dropped with a warning, so a
+    server tool can neither shadow a built-in schema nor borrow its
+    classification at the operator gate.
     """
 
     endpoint = configured_endpoint()
@@ -273,6 +277,9 @@ def extra_talk_tools() -> list[dict]:
             _log.warning("extra MCP tool %r is allowlisted but the server does not list it", entry)
             continue
         name = function_name(entry)
+        if name in reserved:
+            _log.warning("extra MCP tool %r maps to the built-in name %r; dropped", entry, name)
+            continue
         if name in _registry:
             continue
         schema = {

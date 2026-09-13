@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 15,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"instrument\":\"NQ 09-26\",\"timeframe\":\"1D\",\"bars\":[]}"
+      }
+    ],
+    "isError": false
+  }
+}
