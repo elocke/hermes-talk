@@ -18,3 +18,28 @@ def _ephemeral_runs_optin(monkeypatch):
     """
 
     monkeypatch.setenv("TALK_RUNS_ALLOW_EPHEMERAL", "1")
+
+
+@pytest.fixture(autouse=True)
+def _no_extra_tools_from_the_box(monkeypatch):
+    """The advertised tool list must not depend on the box running the suite.
+
+    Desk tools and extra MCP tools ride on operator env; a developer's shell
+    that has them set would otherwise change every tool-list assertion. Tests
+    that exercise them set the variables explicitly.
+    """
+
+    import talk_mcp_tools
+
+    for name in (
+        "TALK_DESK_TOOLS",
+        "TALK_DESK_MCP_URL",
+        "TALK_DESK_MCP_KEY",
+        "TALK_EXTRA_MCP_SERVER",
+        "TALK_EXTRA_MCP_KEY_ENV",
+        "TALK_EXTRA_MCP_TOOLS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    talk_mcp_tools.reset()
+    yield
+    talk_mcp_tools.reset()

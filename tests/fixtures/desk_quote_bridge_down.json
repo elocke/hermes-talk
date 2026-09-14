@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"error\":{\"code\":\"BRIDGE_DOWN\",\"message\":\"bridge unreachable: Unable to connect. Is the computer able to access the url?\",\"retryable\":true}}"
+      }
+    ],
+    "isError": true
+  }
+}

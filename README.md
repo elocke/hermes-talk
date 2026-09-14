@@ -746,6 +746,8 @@ with defaults and failure modes: [docs/OPERATING.md](docs/OPERATING.md#configura
 | `TALK_ELEVENLABS_API_KEY` / `ELEVENLABS_API_KEY` | unset | ElevenLabs key for the cascade lane, Talk-scoped first; set-but-blank refuses; rides the `xi-api-key` header, never the URL |
 | `TALK_ELEVENLABS_VOICE_ID` | unset | Voice the cascade speaks with — **required** in cascade mode (stock or cloned, from your ElevenLabs account) |
 | `TALK_ELEVENLABS_MODEL` | `eleven_flash_v2_5` | ElevenLabs TTS model for the cascade lane |
+| `TALK_EXTRA_MCP_SERVER` / `TALK_EXTRA_MCP_KEY_ENV` / `TALK_EXTRA_MCP_TOOLS` | unset | Expose allowlisted tools of one MCP server as realtime functions (read-only, fail-closed); [manual](docs/OPERATING.md#extra-mcp-tools) |
+| `TALK_DESK_TOOLS` / `TALK_DESK_MCP_URL` / `TALK_DESK_MCP_KEY` | unset | The five desk market lookups (`get_quote` …) over the trading MCP server; [manual](docs/OPERATING.md#desk-tools) |
 | `TALK_PREFER_CODEX_OAUTH` | unset | `true` requires Codex OAuth and refuses key fallback; absent/`false` keeps key-first precedence |
 | `TALK_INPUT_DEVICE` / `TALK_OUTPUT_DEVICE` | auto | sounddevice overrides |
 | `TALK_AGENT_PROFILE` | auto-detect | Profile for the detached background agent |

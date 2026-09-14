@@ -1,0 +1,408 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "trading_stack-nt8.instruments.search",
+        "description": "Search for instruments by keyword, optionally filtered by exchange.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exchange": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "q"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-nt8.instrument.details",
+        "description": "Get contract specs for an instrument: tick size, point value, tick value (cash per tick), currency, instrument type, exchange, expiry, and description.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "instrument"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-nt8.data.coverage",
+        "description": "List locally-loaded market data. Historical bar repos (source=historical: MINUTE/DAY/TICK) are usable for backtests; Market Replay (source=replay, period=REPLAY) is for the Playback path. Optional instrument filter. Each entry: {instrument, source, period, fromDate, toDate, days}.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-nt8.quote.get",
+        "description": "Get the latest bid/ask/last quote for an instrument.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "instrument"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-nt8.bars.history",
+        "description": "Retrieve historical OHLCV bars for an instrument.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeframe": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "instrument",
+            "timeframe",
+            "count"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-nt8.depth.snapshot",
+        "description": "Get the current market depth (order book) snapshot for an instrument.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instrument": {
+              "type": "string",
+              "minLength": 1
+            },
+            "levels": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10
+            }
+          },
+          "required": [
+            "instrument"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-core.health.stack",
+        "description": "Readiness and probe latency for every domain this server has mounted. Reports rather than fails: a domain whose backend is down is described in its own row instead of erroring the call, so one sick backend never costs you the picture of the others. Returns {domains: [{domain, status, ready, reason?, code?, latencyMs, lastWriteIso?, detail?}]}, where latencyMs is the domain's own reported probe latency where available. lastWriteIso is an ISO-8601 UTC freshness marker sent only by domains that persist something: the newest row that domain has WRITTEN. For gex it is the newest row in the SEPARATE gex-gateway process's history store, not anything held by this server, which keeps no gex history of its own. Absent means the domain reported no usable marker (an empty store, or a backend too old to send one) and never means stale. Read it together with ready: ready=true with an old lastWriteIso is a backend that is answering while its write loop has stopped, which is a different fault from ready=false and wants a different fix. The two failure shapes need different responses: status=mounted with ready=false means this server DOES serve the domain and its backend failed the probe — `reason` has the detail, `code` is set when the sweep itself classified it (DOMAIN_TIMEOUT = the domain blew the sweep's deadline), and retrying may help. status=not_mounted means this server does not serve that domain at all; a retry will not help, a restart with different config would. Unmounted domains appear only if you name them in `expect`. `detail` is per-slot liveness sent only by domains that have slots to report on (tv today): {shell: \"desk\"|\"hosted\", epoch, agent?, slots: [{name, state: \"live\"|\"absent\"|\"ambiguous\"|\"unreachable\", symbol?, timeframe?, layoutId?, layoutName?, reason?}]}. state=absent means the slot is configured but no pane currently matches it; state=unreachable means liveness could not be checked at all (agent offline, or the check itself failed/timed out) — the two are never the same thing. state=ambiguous means the slot names a `layout` that still matches SEVERAL open panes, so it binds to none of them and no tv tool will act on it (a layoutId is not a unique pane handle: the same saved layout can be open in several windows). `layoutId`/`layoutName` are the BOUND pane's layout identity, present only on a live slot: layoutId is the matching key; layoutName is display-only and is usually just the tab title, which carries the SYMBOL rather than any layout name, so never match on it. A slot's `reason` is set when state=ambiguous (how many panes matched), and when state=unreachable AND the desk agent was reachable enough to be asked — i.e. the check itself failed or timed out, distinct from no agent being connected at all (that case is already covered by this row's own top-level `reason`). `detail.agent` is {agentId, version, helloAtIso} for the desk agent currently holding the socket, and is absent when none is connected or it has not introduced itself yet — it answers \"which agent build is running?\" when a stale binary is suspected (the newest connection always wins, evicting any older one). Absent `detail` means the domain has nothing per-slot to say.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "expect": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32,
+              "default": [],
+              "description": "Domain names you expect this server to be serving. Any that are not mounted come back as status=not_mounted. Mounted domains are always reported whether or not you list them."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.summary",
+        "description": "GEX (gamma exposure) dashboard for one symbol: dealer positioning as of the feed's last update. Returns {symbol, view, futPrice, etf, etfPrice, updated, ageSec, regime, netGexM, dexM, vannaM, charmM, flipFut, flipEtf, callWallFut, putWallFut, ratio, shift, distToFlip, distToCallWall, distToPutWall}. `regime` is positive/negative gamma; `flipFut` is the gamma-flip price in futures terms and the dist* fields are signed distances from the current futures price. `updated`/`ageSec` say how old the feed's snapshot is — check it before trading off this. A partial payload is served rather than rejected: a field the feed did not carry (futPrice, etfPrice) is OMITTED, and a dist* that could not be computed without it arrives as NULL. Read null as 'unknown' — never as zero, and never as 'price is at the level'. Use gex.levels for the strike ladder and gex.views to compare all six views.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            },
+            "weight": {
+              "type": "string",
+              "enum": [
+                "oi",
+                "vol"
+              ],
+              "default": "oi",
+              "description": "Weight gamma by open interest (oi) or by volume (vol)."
+            },
+            "dte": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "all"
+              ],
+              "default": "0",
+              "description": "Expiry bucket: 0 = today's expiry only, 1 = today plus tomorrow, all = every listed expiry."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.levels",
+        "description": "The key GEX strikes for one symbol — the price ladder behind gex.summary. Returns {symbol, view, futPrice, flipFut, callWallFut, putWallFut, levels: [{strike, fut, gex, cGex, pGex, cOI, pOI, vol, oiChg, side}]}, where `fut` is the strike expressed in futures terms, `gex` is net gamma at that strike (cGex/pGex the call/put halves) and `side` marks the wall it belongs to. Fields the feed did not carry are OMITTED rather than defaulted — `futPrice` can be absent on a partial payload, and `side` is only present on the rows that form a wall. Use this when you need the actual strikes to place levels on a chart; gex.profile returns the full per-strike curve instead of just the key ones.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            },
+            "weight": {
+              "type": "string",
+              "enum": [
+                "oi",
+                "vol"
+              ],
+              "default": "oi",
+              "description": "Weight gamma by open interest (oi) or by volume (vol)."
+            },
+            "dte": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "all"
+              ],
+              "default": "0",
+              "description": "Expiry bucket: 0 = today's expiry only, 1 = today plus tomorrow, all = every listed expiry."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.profile",
+        "description": "The full per-strike gamma profile for one symbol — the whole curve, where gex.levels returns only the key strikes. Returns {symbol, view, futPrice, count, profile: [{strike, fut, gex, cGex, pGex, cOI, pOI, vol, oiChg}]}, `count` being the number of rows after filtering. This is the largest gex response; ask for a specific view rather than calling it repeatedly, and prefer gex.levels when you only need the walls and the flip.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            },
+            "weight": {
+              "type": "string",
+              "enum": [
+                "oi",
+                "vol"
+              ],
+              "default": "oi",
+              "description": "Weight gamma by open interest (oi) or by volume (vol)."
+            },
+            "dte": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "all"
+              ],
+              "default": "0",
+              "description": "Expiry bucket: 0 = today's expiry only, 1 = today plus tomorrow, all = every listed expiry."
+            },
+            "nonzero": {
+              "type": "boolean",
+              "default": true,
+              "description": "Drop strikes whose net gamma is exactly 0 (the default). Set false for the complete strike grid, including the empty wings."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.views",
+        "description": "All six GEX views for one symbol side by side (open-interest vs volume weighting x 0/1/all day-to-expiry), for spotting divergence between them — e.g. positive gamma on open interest while volume-weighted 0DTE is negative. Returns {symbol, futPrice, updated, views: {oi_0|oi_1|oi_all|vol_0|vol_1|vol_all: {regime, netGexM, flipFut, callWallFut, putWallFut}}}. A view absent from the feed's payload is omitted rather than reported as zero. Call this first when you do not already know which view to trust, then gex.summary for the full detail.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.price_series",
+        "description": "Downsampled intraday price history for one symbol, as carried by the GEX feed — the price track the gex.* levels were computed against. Returns {symbol, count, series: [{ts, price}]} with `ts` in EPOCH SECONDS, oldest first. Even-stride downsample with both endpoints pinned. This is the feed's own price curve, not NinjaTrader bar data: use it to line GEX levels up against intraday price, not as a market-data source.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 10000,
+              "default": 200,
+              "description": "How many samples to downsample the intraday curve to (default 200). Both endpoints are pinned, so the last point is always the latest sample. Asking for more points than the feed carries returns the full series untouched rather than padding it."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.history",
+        "description": "How this symbol's GEX levels EVOLVED over a window — the time series behind gex.summary's single snapshot. Returns {symbol, view, window, rows: [{symbol, view, ts, futPrice, regime, netGexM, flipFut, callWall, putWall, dexM, vannaM, charmM}], digest, source}, `ts` in EPOCH SECONDS. `digest` summarises the rows: {count, from, to, flipFut|callWall|putWall|netGexM: {open, high, low, close} or null, regimeFlips: [{ts, from, to}]} — read it first, it answers 'did the flip move and did the regime turn' without the rows. `source` says where the rows came from ('gateway'). An empty `rows` with count 0 means the history store genuinely holds nothing for that window, not that the lookup failed — a failure is an error, never an empty answer. Use gex.levels for where the walls are NOW.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,12}$",
+              "description": "Futures root or single-name ticker, e.g. NQ, ES, GC, AAPL. Case-insensitive. Index/ETF tickers (SPX/SPY/QQQ) are mapped internally by the feed and rejected as direct symbols."
+            },
+            "window": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "3h",
+                "1d",
+                "3d",
+                "1w"
+              ],
+              "default": "1d",
+              "description": "How far back to look, ending now. Default 1d."
+            },
+            "weight": {
+              "type": "string",
+              "enum": [
+                "oi",
+                "vol"
+              ],
+              "default": "oi",
+              "description": "Weight gamma by open interest (oi) or by volume (vol)."
+            },
+            "dte": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "all"
+              ],
+              "default": "0",
+              "description": "Expiry bucket: 0 = today's expiry only, 1 = today plus tomorrow, all = every listed expiry."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-gex.symbols",
+        "description": "The known-good symbols for the other gex.* tools. Takes no arguments and touches no network — it echoes a hand-maintained list, so treat it as a starting point rather than a contract: a symbol missing from it may still work. Returns {symbols: [string], note: string}, where `note` carries that caveat for anything caching the list.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-tv.slots.list",
+        "description": "List every configured TradingView desk slot and its current liveness. Returns {shell, epoch, slots: [{name, state, symbol?, timeframe?, layoutId?, layoutName?, chartIndex?, reason?}]}. `shell` is always \"desk\" today (no hosted shell exists yet) and `epoch` bumps on every desk-agent connect/disconnect. Desk slots are MATCH-ONLY (never auto-bound): `state` is `live` when one of the charts the operator currently has open already shows that slot's configured symbol+timeframe; `absent` when the agent answered but no open chart matches; `ambiguous` when there is no single chart to bind and picking one would be a guess dressed up as a fact — EITHER a slot that also configures a `layout` (below) still matches MORE THAN ONE open pane, OR several open charts match and none of them is TradingView's active chart, so the tie-break below cannot choose; `unreachable` when the agent could not be asked at all (timeout, decode failure, mid-flight disconnect). `reason` explains WHY: it is set for `ambiguous` (which cause, and which candidates — by layout and chart index), for `unreachable` (the link failure), and for the TWO kinds of `absent` that are not self-explanatory (both can be reported at once). FIRST: a slot narrowing on `layout`/`chart` when NO open pane reported that evidence at all, i.e. the desk agent predates the field, so that slot is absent FOREVER rather than until the chart is opened. SECOND: an open pane whose chart list this server REFUSED to trust — it contradicted itself (its entries are not in `api.chart(i)` order, or several charts each claim to be the active one) and was excluded from matching entirely, so this slot may in fact be open on it. That second one is a TRIPWIRE, not a normal desk state — the desk agent cannot currently produce such a list, so report it rather than working around it. `reason` is never set for `live` or ordinary `absent`. NEVER read `absent` as \"the chart is closed\" and `unreachable` as the same thing: `absent` means the agent looked and found nothing; `unreachable` means it could not look. A slot MAY configure an optional `layout` (Plan D) to narrow which pane it binds to, on top of — never instead of — its symbol+timeframe: when set, only a pane whose `layoutId` equals it can match. A `live` slot's own `layoutId`/`layoutName` in the response are the BOUND pane's, reported only when the desk agent supplied them. `layoutId` is the matching key; `layoutName` is DISPLAY-ONLY and participates in no matching (on TradingView Desktop 3.3.0 it is almost always `document.title`, which carries the SYMBOL rather than any layout name, so two different layouts of the same symbol get identical names). A configured `layout` is NOT a unique pane handle — the same saved layout can be open in several windows at once, each with its own chart state — so it narrows the candidates but can still leave more than one, which is exactly the `ambiguous` state above rather than a silent pick of the first. A pane is a WINDOW that can hold several charts (one of the operator's holds five), and EVERY one of them is matched, not just the one he last clicked. `chartIndex` on a `live` slot says WHICH — `api.chart(chartIndex)`, the same index `tv.chart.read`'s `charts[]` is ordered by — and the bound pane plus that index is what tells two otherwise identical bindings apart. THE ACTIVE CHART IS THE TIE-BREAK: when several charts match one slot, the chart TradingView currently has ACTIVE wins, which is what makes matching every chart additive rather than a regression — it reproduces exactly the pane the earlier active-chart-only matcher bound. If several separate PANES each hold an active matching chart, the first in the desk agent's enumeration order wins, which is the same order that decided before. When several match and NONE is active there is nothing to break the tie, so the slot is `ambiguous` and binds nothing. When exactly ONE matches and it is not the active chart, it binds anyway — that is the capability this adds: such a chart used to be invisible and its slot read `absent`. A slot MAY also configure an optional `chart` index (a non-negative integer, with or without `layout`) to name one chart exactly: like `layout` it NARROWS the match on top of — never instead of — symbol+timeframe, and a mismatch is `absent`, NEVER a fallback to a different chart (out of range, an unreadable chart, and \"the chart at that index shows something else\" all resolve the same honest `absent`). A slot that configures NEITHER `layout` NOR `chart` binds exactly the way it always did. `chartIndex` is OMITTED — never defaulted to 0 — when the resolution could not name an index: a desk agent older than per-chart enumeration reports only its active chart's symbol+timeframe, and a pane whose enumerated charts have all lost their `active` flag while the pane itself still reports an active chart's values ALSO offers that pane-level pair as a candidate (added, not substituted), which binds index-less unless exactly one enumerated chart reports the same pair, in which case that index is used. An omitted `chartIndex` on a `live` slot therefore means \"the pane's active chart, whichever that is\" — it is what every write op targeted before writes carried an index — and a caller must not invent one. `tv.chart.read`'s `matchedIndex` is THIS index, not a second opinion: it reports the binding published here after checking that its own readout still shows this slot's symbol+timeframe at that index, and reports NO index at all when it does not. A slot that binds with no `chartIndex` is the one case where that call names its readout's own active chart instead. `chartIndex` here is the resolved binding and is the one a write is aimed at. Throws a distinct, actionable error (\"no desk agent connected\") instead of returning slots at all when the desk agent is not connected — that is a link problem, not a per-slot fact.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      {
+        "name": "trading_stack-tv.chart.read",
+        "description": "Read one configured TradingView desk slot by NAME (see tv.slots.list for the configured names). Returns {shell, epoch, slot, readout, cached}. CACHING (D14): a slot's reading is cached until its bar closes, not for a fixed time — a second read inside the same bar returns instantly with `cached: true` and asks the desk agent nothing; the moment the bar closes the next read is live again with `cached: false`, however little wall-clock time elapsed. Pass `fresh: true` to bypass this unconditionally and force a live round trip regardless of the cache state — do this before acting on a number that is about to be traded on. A cached response's `epoch` is the epoch its data was actually fetched under, which is always the CURRENT epoch: any desk-agent reconnect (D4) invalidates every cached reading, so a stale entry from a previous agent session can never be served under it. `readout` is a PAGE, not a single chart: {layoutId, layoutName, layoutNameSource, focused, charts: [...], matchedIndex? / matchedIndexUnavailable?}, because one TradingView pane can hold a multi-chart layout — each entry of `charts` carries that chart's own symbol, timeframe, loaded study NAMES, and (both OPTIONAL — omitted when the in-page scrape had nothing to report) last bar OHLCV and visible range. `layoutId` is the `/chart/<id>/` segment of the TradingView URL and is the ONLY layout value anything ever MATCHES on — it is what a slot's optional `layout` config is compared against. `layoutName` is DISPLAY-ONLY and must NEVER be used as a matching key, not even as a tie-breaker: measured on TV Desktop 3.3.0 there is no layout-name accessor, so the name falls through to `document.title`, which carries the SYMBOL — two different saved layouts of the same symbol therefore report the SAME name, and matching on it would bind the wrong pane while looking right. `layoutNameSource` says which of those two it actually was: \"api\" | \"document.title\" | null. All three are present on every readout and are `null` (never absent) when the desk agent had nothing to report. `layoutNameSource` is non-null ONLY when the name came from one of those two places; a `layoutName` with a null source is a name whose provenance was not recognized — display it, but treat it as evidence of nothing. `matchedIndex` names WHICH entry of `charts` belongs to this slot, and it is THE SAME ANSWER as `tv.slots.list`'s `chartIndex`: the chart slot resolution BOUND, which is also the chart a write is aimed at. There is one answer to \"which chart\", not two — this field used to be re-derived here from the readout's own active-chart flag, and could name a DIFFERENT chart than the one a write would hit. It is CHECKED against this readout before being reported, because an index is a POSITIONAL handle and this read is a separate round trip from the resolution: the entry at that index must exist, be readable, and still show the slot's configured symbol+timeframe. On a `cached: true` response that check runs against a readout up to a bar old while the binding is current, so a pane REORDERED mid-bar can leave the snapshot's chart at that index a different one from whatever sits there live — `matchedIndex` still indexes correctly into the `charts` THIS response ships, and `fresh: true` closes the gap. A slot that resolves with NO index — its pane reported only which chart was active, so there was none to bind (see tv.slots.list) — is the one case where this field names the readout's own ACTIVE chart instead, and only while that chart still agrees with the slot's configured pair. It is ABSENT, replaced by a `matchedIndexUnavailable` reason string, and NEVER defaulted to 0, whenever that cannot be done honestly: this readout carries no chart at the bound index at all, the entry there is an `unreadable` placeholder (below), or it shows something other than the slot's configured pair — plus, for an index-less slot only, nothing in `charts` claims to be active, or several entries claim it at once (the readout contradicting itself). A disagreeing entry has more than one possible cause and the reason string names them rather than asserting one: TradingView's active chart follows the operator's clicks, the pane's chart SET can change between the two round trips, and the two scrapes can disagree about which chart is active. An absent `matchedIndex` means the match could not be located, full stop — treat every entry of `charts` as unattributed context until a real index says otherwise; reaching for `charts[0]` regardless is exactly the mistake this field exists to stop (it has already produced 5-minute bars labelled hourly). MATCHING THE PAIR IS NOT MATCHING THE CONTENT, so do not read an unmatched chart as a stand-in for the matched one: another chart of the SAME pane can show the same symbol at the same timeframe and carry entirely different studies, drawings and `levels`. \"The RSI on your NQ 5m is 72\" taken off a chart this slot is not bound to is wrong even though the symbol and timeframe were right. Read `charts[matchedIndex]`. An entry of `charts` can also be an `unreadable: true` PLACEHOLDER: it renders as a chart with NO symbol, timeframe, values or levels — the in-page scrape for that one chart failed, and it holds its place in the array only so the OTHER charts' indexes stay stable. It is not an empty chart and it is never what `matchedIndex` points to. `chartsTruncated` is normally `null` and is the count of charts the page CLAIMED to have, present as a number ONLY when that claim exceeded what the scrape actually walked — the in-page loop is bounded (a page cannot be allowed to spin the chart window's JS thread), so `charts` is then SHORT. This is the only place that fact is ever reported. When it is non-null, every chart past the end of `charts` is simply INVISIBLE: it cannot be read here, and a desk slot that would have matched one of those higher indexes resolves `absent` rather than binding anything — a missing chart, not a wrong one. The indexes that ARE present keep their true meaning, so `matchedIndex` is never wrong because of truncation, only sometimes unavailable. The bound is far above any real TradingView layout, so a non-null value means TradingView changed or an accessor broke — report it rather than working around it. `levels` carries the levels the chart's studies DREW — one entry per primitive, {study, kind: 'line'|'label'|'box', price? / high?+low?, text?}. A `label` carries the level's NAME in `text` (the study's own string, typically the price plus a tag like yCPR-BC or ADR), which is what makes a level identifiable; a `line` is a bare price. Repeated draws of one horizontal level collapse to a single entry per study and rounded price. `values` is the Data-Window items. BOUND — `levels` IS A SELECTION, NOT AN INVENTORY, and reading it as one is the mistake to avoid: each study contributes at most 10 levels, and only levels within 500 POINTS of last price are considered at all (points, never a percentage; configurable per slot, because 500 points is 1.7% of NQ and 7.4% of ES). A study's ten slots SPLIT: six go to the NAMED levels first (labels, then zones/boxes, then bare lines, nearest-to-price within each) because a label carries the level's name and a bare price does not, and four are reserved for the NEAREST levels regardless of kind, so a level price is sitting on is never evicted by a named one further out. Read `levels` as a selection made under both rules, not a ranking under one. \"NAMED\" MEANS THE TEXT CONTAINS A LETTER, not merely that a label has text: a decorative glyph and a label that only restates its own price both rank as bare prices, because neither adds anything `price` does not already say. Studies on this desk draw hundreds of anonymous bullet marks and they were displacing the real named levels until 2026-08-08. `levelsDropped: <n>` is how many drawn levels that removed — a count, not an error. It is routinely in the THOUSANDS: one pane on this desk drew 2786 primitives, which bound to ~43 levels. An empty or short `levels` after a large `levelsDropped` therefore means \"nothing this study drew is near the market\", NOT \"this study drew nothing\". If the chart reported no last price the window cannot be applied at all; the readout then carries a `levelsNote` saying so and the per-study quota alone bounds the list — as it does, separately, when the chart's price came from the page-wide legend rather than its own series, in which case the window may have been applied against another chart's instrument. READ `levelsNote` BEFORE TREATING A SHORT `levels` AS EVIDENCE. A slot's window applies to EVERY chart of the pane it binds to, not only the matched one — one read covers the whole layout — so on a multi-chart layout a band tuned for this slot's symbol also bounds its neighbours. CAP: a chart's item budget covers `levels` and `values` together, and `values` is guaranteed half of it — no amount of drawing can zero the Data-Window rows. `dropped: <n>` counts the VALUES omitted; `levelsDropped` counts levels. The two are separate numbers on purpose. THE BUDGET IS PER RESPONSE, NOT PER CHART (fixed 2026-08-08; it was per chart, and a 5-chart pane cost 5x — one live read returned 58 KB). One call returns at most 400 items across the WHOLE `charts` array however many charts the pane holds: the chart TradingView has ACTIVE — which is NOT always the one `matchedIndex` names, because a slot can bind a chart the operator does not currently have active — keeps a full 200, and the remaining charts split what is left EQUALLY, so every chart of the layout keeps a voice and none is silenced. That privilege needs EXACTLY ONE chart claiming active; when none do or several do — the same states that make an INDEX-LESS slot's `matchedIndex` unavailable — there is no active chart to favour and all charts split the 400 equally instead. An `unreadable` placeholder is allocated nothing, because it has nothing to report. A short `levels`/`values` on any chart other than the ACTIVE one is therefore expected — including on the chart `matchedIndex` names, when the slot bound a non-active chart — and is not evidence about that chart; its `dropped`/`levelsDropped` say how much its narrower share removed. SCOPE, measured 2026-08-06 on TradingView Desktop 3.3.0: Data-Window `values` resolve for every source ON THE ACTIVE CHART — see the KNOWN LIMITATION paragraph below for the other charts of a multi-chart layout, where that is NOT true — and `levels` resolves for the operator's own Pine studies — one chart on this desk was measured holding 354 line and 36 label primitives. (Those read as zero until 2026-08-07: the in-page scrape read the primitive buckets, which are nested Maps, as arrays. That was our defect, never a TradingView limitation.) Whether TradingView's OWN BUILT-IN drawing studies populate the collection is UNMEASURED in either direction — nothing on this desk draws from a built-in, so there is no evidence — which means an empty `levels` on a chart whose only studies are built-ins is UNKNOWN, not proof that the chart draws nothing. the operator's HAND-DRAWN line tools (drawn with the mouse, not by a script) are a different model surface entirely and are out of scope — not attempted, not partially resolved. KNOWN LIMITATION, live-measured 2026-08-06, not yet fixed: Data-Window `values` reliably reflect the chart TradingView currently has ACTIVE. On the OTHER charts of a multi-chart layout, a study's Data-Window rows can come back short or missing even while that same study is genuinely showing numbers on screen, because TradingView's Data-Window state follows the active chart rather than each chart's own model. A short or empty `values` on a chart other than the ACTIVE one is therefore NOT proof that chart's studies output nothing — and because a slot can bind a chart that is not the active one, that includes the chart `matchedIndex` names. This slot must be `live` (see tv.slots.list): reading an `absent` slot (no open pane matches it right now), an `unreachable` one (the desk agent could not be asked — RETRYABLE, unlike the other two), or an `ambiguous` one (EITHER its configured `layout` still matches more than one open pane, OR several open charts match it and none of them is TradingView's active chart — the second is reachable for a slot that configures nothing at all — so there is no single chart to read; see tv.slots.list) throws a clear, distinctly-worded error rather than a silent empty readout — an earlier bug made an `absent` slot look like a successful-but-blank read. Calling this with no desk agent connected at all throws its own distinct \"no desk agent connected\" error.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": "string",
+              "minLength": 1
+            },
+            "fresh": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "required": [
+            "slot"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    ]
+  }
+}
