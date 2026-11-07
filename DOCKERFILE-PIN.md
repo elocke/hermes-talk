@@ -1,88 +1,51 @@
-# Pinning this fork into the hermes image — NOT deployed
+# Running this fork — trading profile only
 
-Feature commit: `10eaf22d9dae76824ad4cb4197442e93beb7704a` (branch `feat/desk-tools`,
-on upstream `ab2691c` = v0.19.0). The branch tip is this file on top of that commit;
-pin the tip sha once the lead pushes the fork (`git rev-parse feat/desk-tools`).
+Branch `feat/desk-tools-v0.22.0`: the desk-tools commits rebased onto upstream
+v0.22.0 (`7ad833e`). The older `feat/desk-tools` (on v0.19.0) is kept for rollback.
 
-## How the plugin is installed today (read-only evidence, 2026-09-12)
+## How it is deployed
 
-`/mnt/config/hermes/data/profiles/trading/plugins/.install-metadata.json` on LXC 213:
+Only the `trading` profile on LXC 213 runs this fork; every other profile runs
+upstream. The plugin is a git clone on the hermes-home volume
+(`/opt/data/profiles/trading/plugins/hermes-talk`, origin `elocke/hermes-talk`).
 
-```json
-{ "hermes-talk": { "pinned": false,
-                   "revision": "e814b1148befb256b1a711d4ee3d1783f5ca28f8",
-                   "source": "https://github.com/TheSmokeDev/hermes-talk.git" } }
-```
+It is NOT moved with `hermes plugins install/update`: in that deployment both
+fail for hermes-talk (one uv workspace with several members named `hermes-talk`,
+NousResearch/hermes-agent#125252). homelab `tofu/lxc/hermes/scripts/update-plugins.py`
+moves it instead — `GIT_PINS` maps this fork's origin to the commit to run, and
+the script does `git fetch` + detached checkout, leaving `.env` untouched. Bump
+that pin by PR, run the script with `--apply`, then restart the root gateway.
 
-So the install is **per-profile on the hermes-home volume**, made by
-`hermes -p trading plugins install …` — the image (`homelab/tofu/lxc/hermes/dockerfile/Dockerfile`)
-does not carry the plugin at all. The running revision is v0.17.0; this branch targets
-main (v0.19.0). Tool-registry surface delta e814b11 → ab2691c: `default_talk_tools()`,
-`_HANDLERS`, `READ_ONLY_TALK_TOOLS` / `MUTATING_TALK_TOOLS` and `execute_talk_tool()` are
-the same shape in both; v0.18/0.19 added the GPT-Live lane and dashboard task handoffs,
-which this branch does not touch. Installing the fork therefore also moves `trading`
-from 0.17.0 to 0.19.0+ — read CHANGELOG 0.18.0/0.19.0 before the gated install.
+## Profile env (values never in the repo)
 
-## 1. Image-side pin (config-as-code; the source the profile install reads)
-
-Add to `Dockerfile` after the `RUN ln -sf /opt/hermes/bin/hermes …` line and before
-`USER hermes` (root is still active there; `git` is in the base image because
-`hermes plugins install` clones with it):
-
-```dockerfile
-# hermes-talk fork with desk tools (elocke/hermes-talk feat/desk-tools). Staged in
-# the image so the per-profile install below is a local, pinned clone — the volume
-# install is the one Hermes actually loads (plugins live per profile on hermes-home).
-# Fetch BY SHA: a depth-1 clone of a branch cannot check out an arbitrary commit.
-# renovate: ignore — pinned by hand, bump with the fork.
-ARG HERMES_TALK_FORK=https://github.com/elocke/hermes-talk.git
-ARG HERMES_TALK_SHA=10eaf22d9dae76824ad4cb4197442e93beb7704a
-RUN git init -q /opt/hermes-talk-dist \
- && git -C /opt/hermes-talk-dist fetch -q --depth 1 "$HERMES_TALK_FORK" "$HERMES_TALK_SHA" \
- && git -C /opt/hermes-talk-dist checkout -q FETCH_HEAD \
- && chown -R 10000:10000 /opt/hermes-talk-dist
-```
-
-Verification after the (gated) image build: `docker exec hermes git -C /opt/hermes-talk-dist rev-parse HEAD`
-→ `10eaf22d9dae76824ad4cb4197442e93beb7704a`.
-
-## 2. Per-profile install on the volume (GATED — writes a live volume)
-
-The form CONTRIBUTING.md documents for running a branch live, scoped to the profile:
-
-```bash
-# lead pushes the fork first (never from a subagent):  git push elocke feat/desk-tools
-ssh hermes-host docker exec hermes hermes -p trading plugins install --force \
-    --ref 10eaf22d9dae76824ad4cb4197442e93beb7704a elocke/hermes-talk --enable
-# then restart the trading gateway — a running gateway keeps the old code until it restarts
-```
-
-Verification: `ssh hermes-host cat /mnt/config/hermes/data/profiles/trading/plugins/.install-metadata.json`
-→ `"revision": "10eaf22…"`, `"source": "https://github.com/elocke/hermes-talk.git"`; then
-`hermes -p trading talk doctor` still green and `talk_status` reports version `0.19.0`.
-
-If the image stage from §1 is present, the same command with the local path as the
-identifier (`/opt/hermes-talk-dist`) avoids a network clone from inside the container —
-untested here; the `--ref <sha> owner/repo` form above is the documented one.
-
-## 3. Profile env (operator items — values never in the repo)
-
-In `/opt/data/profiles/trading/.env` on the volume (loaded by the gateway with
-`override=True` before config parse, per hermes.yml):
+In the profile's `/opt/data/profiles/trading/.env` (the plugin's own `.env`
+holds the other `TALK_*` settings):
 
 ```
 TALK_DESK_TOOLS=1
 TALK_DESK_MCP_URL=http://192.168.2.210:4000/trading_stack/mcp
-TALK_DESK_MCP_KEY=<the trading profile's LiteLLM key — same value as LITELLM_KEY in that .env>
+TALK_DESK_MCP_KEY=<the trading profile's LiteLLM key>
 ```
 
-All three are required: the handlers refuse (spoken `{"error": …}`, no request) when any
-one is missing, and there is no built-in default URL.
-Do NOT put `TALK_DESK_TOOLS=1` in hermes.yml: it is container-wide and would advertise
-the desk tools to every profile's Talk session, not just `trading`.
+All three are required: the handlers refuse (spoken `{"error": …}`, no request)
+when any one is missing. Never set `TALK_DESK_TOOLS=1` container-wide — it would
+advertise the desk tools to every profile.
 
-## 4. Rollback
+## Rebasing onto a new upstream release
 
-`hermes -p trading plugins install --force --ref e814b1148befb256b1a711d4ee3d1783f5ca28f8 TheSmokeDev/hermes-talk --enable`
-+ gateway restart; remove the two `.env` lines. The image stage is inert without the
-profile install and needs no rollback.
+```bash
+git fetch upstream --tags
+git checkout -b feat/desk-tools-vX.Y.Z feat/desk-tools-v0.22.0
+git rebase vX.Y.Z            # CHANGELOG: keep upstream, re-add the [Unreleased] entry
+pip install -e '.[dev]' -r requirements-lint.txt && pytest -q && ruff check .
+git push origin feat/desk-tools-vX.Y.Z   # new branch: never force-push a pinned one
+```
+
+Then smoke the desk handlers in the container against the live trading MCP
+server, bump `GIT_PINS`, apply, restart, and check `hermes -p trading talk doctor`.
+
+## Rollback
+
+Run the script with the previous commit in `GIT_PINS` (it prints the old commit
+on every move), or `git checkout --detach <old>` in the plugin dir; restart the
+root gateway.
